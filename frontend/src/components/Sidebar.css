@@ -1,0 +1,90 @@
+/* Sidebar Styles */
+.sidebar {
+  position: fixed;
+  top: 50px; /* Adjust so it doesn't overlap the navbar */
+  left: 0;
+  width: 250px;
+  height: 100vh;
+  background-color: #34495e;
+  padding: 20px;
+  color: white;
+  transition: transform 0.3s ease, width 0.3s ease;  /* Smooth transition for sliding */
+  z-index: 99;
+}
+
+.sidebar.minimized {
+  width: 50px;  /* Adjust the width when minimized */
+  transition: width 0.3s ease;
+}
+
+.sidebar.minimized .sidebar-link {
+  display: none;
+}
+
+.sidebar.minimized .sidebar-logo {
+  display: block;
+  text-align: center;
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+
+.sidebar ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.sidebar ul li {
+  margin-bottom: 20px;
+}
+
+/* Make the sidebar fixed to the left */
+.sidebar-and-content {
+  display: flex;
+  flex-direction: row;
+}
+
+.content {
+  margin-left: 250px; /* This ensures the content does not overlap with the sidebar */
+  padding: 20px;
+  flex-grow: 1;
+}
+
+/* Add responsiveness for smaller screens */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 200px;
+    top: 50px;
+  }
+
+  .sidebar-and-content {
+    flex-direction: column;
+  }
+
+  .content {
+    margin-left: 0;
+    padding: 10px;
+  }
+
+  /* Sidebar for small screens */
+  .sidebar {
+    position: relative; /* Make the sidebar relative for small screens */
+    width: 100%;
+    transform: translateX(-100%); /* Start with the sidebar hidden */
+  }
+
+  .sidebar.open {
+    transform: translateX(0); /* Show sidebar when it has the 'open' class */
+  }
+
+  /* Style for mobile toggle button (hamburger menu) */
+  .mobile-toggle-btn {
+    display: block;
+    background: none;
+    border: none;
+    color: white;
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 100;
+  }
+}

@@ -1,0 +1,20 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #ecf0f1;
+}
+
+.authenticated-layout {
+  display: flex;
+}
+
+.sidebar-and-content {
+  display: flex;
+  width: 100%;
+}
+
+.content {
+  padding: 20px;
+  flex-grow: 1;
+}
