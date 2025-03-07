@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import './LoginPage.css';
-import './forgot-password.js';
-import './create-account.js';
 
 const LoginPage = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     // Email validation regex
@@ -23,8 +22,28 @@ const LoginPage = ({ onLogin }) => {
     // Clear the error if email is valid
     setEmailError('');
 
-    // Simulate successful login
-    onLogin();
+    try {
+      // Send POST request to the backend
+      const response = await fetch('http://localhost:5000/create-account', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // If login is successful, call onLogin callback
+        onLogin();
+      } else {
+        setErrorMessage(data.message);  // Show error message if any
+      }
+    } catch (err) {
+      setErrorMessage('An error occurred while logging in');
+      console.error(err);
+    }
   };
 
   return (
@@ -40,7 +59,6 @@ const LoginPage = ({ onLogin }) => {
             onChange={(e) => setEmail(e.target.value)}
             required
           />
-          {/* Show email error message if validation fails */}
           {emailError && <p className="error">{emailError}</p>}
         </div>
 
@@ -55,6 +73,8 @@ const LoginPage = ({ onLogin }) => {
         </div>
 
         <button type="submit">Login</button>
+
+        {errorMessage && <p className="error">{errorMessage}</p>}
 
         <div className="links">
           <a href="/forgot-password">Forgot Password?</a>

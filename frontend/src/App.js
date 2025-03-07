@@ -6,6 +6,7 @@ import LoginPage from './components/LoginPage';
 import CreateAccountPage from './components/create-account';
 import ForgotPasswordPage from './components/forgot-password';
 
+
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false); // Sidebar minimized state

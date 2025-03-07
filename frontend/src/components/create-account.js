@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import './LoginPage.css';
+import axios from 'axios';
 
 const CreateAccountPage = () => {
   const [email, setEmail] = useState('');
@@ -7,20 +7,20 @@ const CreateAccountPage = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [loading, setLoading] = useState(false); // To manage loading state
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     // Email validation regex
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
-    // Check if email is valid
     if (!emailRegex.test(email)) {
       setEmailError('Please enter a valid email address.');
       return;
     }
 
-    // Clear email error if valid
     setEmailError('');
 
     // Password and confirm password validation
@@ -29,11 +29,33 @@ const CreateAccountPage = () => {
       return;
     }
 
-    // Clear password error if valid
     setPasswordError('');
+    setErrorMessage(''); // Clear previous error message
 
-    // Simulate account creation success
-    alert('Account created successfully!');
+    setLoading(true); // Start loading spinner
+
+    try {
+      // POST request with credentials flag
+      const response = await axios.post(
+        'http://localhost:5000/create-account',
+        { email, password, confirmPassword },
+        { withCredentials: true } // Allow credentials (cookies, etc.)
+      );
+
+      if (response.data.message === 'Account created successfully') {
+        alert('Account created successfully!');
+      }
+    } catch (error) {
+      if (error.response) {
+        setErrorMessage(error.response.data.message || 'Something went wrong');
+      } else if (error.request) {
+        setErrorMessage('No response from the server.');
+      } else {
+        setErrorMessage('Request failed: ' + error.message);
+      }
+    } finally {
+      setLoading(false); // Stop loading spinner
+    }
   };
 
   return (
@@ -73,7 +95,11 @@ const CreateAccountPage = () => {
           {passwordError && <p className="error">{passwordError}</p>}
         </div>
 
-        <button type="submit">Create Account</button>
+        <button type="submit" disabled={loading}>
+          {loading ? 'Creating Account...' : 'Create Account'}
+        </button>
+
+        {errorMessage && <p className="error">{errorMessage}</p>}
       </form>
     </div>
   );
