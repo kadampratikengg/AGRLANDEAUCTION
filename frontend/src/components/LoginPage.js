@@ -23,8 +23,8 @@ const LoginPage = ({ onLogin }) => {
     setEmailError('');
 
     try {
-      // Send POST request to the backend
-      const response = await fetch('http://localhost:5000/create-account', {
+      // Send POST request to /login for user login
+      const response = await fetch('http://localhost:5000/login', {  // Change URL to /login
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

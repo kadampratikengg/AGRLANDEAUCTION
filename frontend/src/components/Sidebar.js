@@ -1,5 +1,6 @@
 import React from 'react';
 import './Sidebar.css';
+
 import { FaChevronLeft, FaChevronRight, FaHome } from 'react-icons/fa'; // Adding FaHome as a default logo/icon
 
 const Sidebar = ({ isMinimized, toggleMinimize }) => {
@@ -17,13 +18,13 @@ const Sidebar = ({ isMinimized, toggleMinimize }) => {
       ) : (
         <ul>
           <li>
-            <button className="sidebar-link">Dashboard</button>
+            <button className="/pages/dashboard">Dashboard</button>
           </li>
           <li>
-            <button className="sidebar-link">Manage Auctions</button>
+            <button className="/pages/manage">Manage Auctions</button>
           </li>
           <li>
-            <button className="sidebar-link">Bids</button>
+            <button className="/pages/bids">Bids</button>
           </li>
           
         </ul>

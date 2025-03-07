@@ -9,7 +9,7 @@ const PORT = 5000;
 
 // CORS configuration
 const corsOptions = {
-  origin: ['http://localhost:3000', 'http://192.168.0.33:3000'], // allowed origins
+  origin: ['http://localhost:3000'], // allowed origin for React app
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // allowed HTTP methods
   allowedHeaders: ['Content-Type', 'Authorization'], // allowed headers
   credentials: true, // allow cookies or authorization headers
@@ -35,7 +35,7 @@ const User = mongoose.model('User', new mongoose.Schema({
   password: { type: String, required: true },
 }));
 
-// POST /create-account endpoint
+// POST /create-account endpoint for account creation
 app.post('/create-account', async (req, res) => {
   const { email, password, confirmPassword } = req.body;
 
@@ -53,6 +53,26 @@ app.post('/create-account', async (req, res) => {
   await newUser.save();
 
   res.status(201).json({ message: 'Account created successfully' });
+});
+
+// POST /login endpoint for user login
+app.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  // Check if user exists
+  const user = await User.findOne({ email });
+  if (!user) {
+    return res.status(400).json({ message: 'Invalid email or password' });
+  }
+
+  // Check if password matches
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) {
+    return res.status(400).json({ message: 'Invalid email or password' });
+  }
+
+  // Successful login
+  res.status(200).json({ message: 'Login successful' });
 });
 
 // Handle OPTIONS preflight requests

@@ -16,7 +16,17 @@ const Navbar = ({ toggleSidebar }) => {
   const handleLogout = () => {
     // Any necessary logout logic (e.g., clearing tokens, etc.)
     // Redirect to login page
-    navigate('/login'); // Use navigate instead of history.push
+    navigate('/LoginPage'); // Use navigate instead of history.push
+  };
+
+  // Navigate to Profile page
+  const handleProfile = () => {
+    navigate('/profile'); // Navigate to the Profile page
+  };
+
+  // Navigate to Settings page
+  const handleSettings = () => {
+    navigate('/settings'); // Navigate to the Settings page
   };
 
   return (
@@ -32,10 +42,14 @@ const Navbar = ({ toggleSidebar }) => {
               <div className="dropdown">
                 <ul>
                   <li>
-                    <button className="dropdown-item">Profile</button>
+                    <button className="dropdown-item" onClick={handleProfile}>
+                      Profile
+                    </button>
                   </li>
                   <li>
-                    <button className="dropdown-item">Settings</button>
+                    <button className="dropdown-item" onClick={handleSettings}>
+                      Settings
+                    </button>
                   </li>
                   <li>
                     <button className="dropdown-item" onClick={handleLogout}>
