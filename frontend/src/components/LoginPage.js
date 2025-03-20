@@ -49,7 +49,7 @@ const LoginPage = ({ onLogin }) => {
   return (
     <div className="login-page">
       <form onSubmit={handleSubmit}>
-        <h2>Login to Angular Minds</h2>
+        <h2>Login to A M </h2>
 
         <div className="input-field">
           <label>Email</label>

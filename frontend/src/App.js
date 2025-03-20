@@ -1,51 +1,54 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; // Import Routes from v6
-import Navbar from './components/Navbar';
-import Sidebar from './components/Sidebar';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, } from 'react-router-dom';
 import LoginPage from './components/LoginPage';
 import CreateAccountPage from './components/create-account';
 import ForgotPasswordPage from './components/forgot-password';
-
+import Dashboard from './pages/dashboard'; // Import the new combined Dashboard
+import Manage from './pages/manage';
+import Bids from './pages/bids';
+import Settings from './pages/settings';
+import Profile from './pages/profile';
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false); // Sidebar minimized state
 
+  // Check if the user is authenticated when the app loads
+  useEffect(() => {
+    // Retrieve authentication state from localStorage
+    const storedAuthState = localStorage.getItem('isAuthenticated');
+
+    // If storedAuthState is not null or not 'true', consider user as unauthenticated
+    setIsAuthenticated(storedAuthState === 'true');
+  }, []);
+
+  // Handle login and store the authentication state in localStorage
   const handleLogin = () => {
     setIsAuthenticated(true);
-  };
-
-  const toggleMinimize = () => {
-    setIsMinimized((prev) => !prev); // Toggle the sidebar minimized state
+    localStorage.setItem('isAuthenticated', 'true'); // Save authentication state to localStorage
   };
 
   return (
     <Router>
-      <div className="App">
-        {isAuthenticated ? (
-          <div className="authenticated-layout">
-            <Navbar />
-            <div className="sidebar-and-content">
-              <Sidebar isMinimized={isMinimized} toggleMinimize={toggleMinimize} />
-              <div className="content">
-                <Routes> 
-                  <Route path="/" element={<h2>Welcome</h2>} />  {/* Main page after login */}
-                  {/* Add other routes for authenticated users */}
-                  {/* Example: */}
-                  <Route path="/dashboard" element={<h2>Dashboard</h2>} />
-                </Routes>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <Routes>
-            {/* Route to LoginPage */}
-            <Route path="/" element={<LoginPage onLogin={handleLogin} />} />
-            {/* Add routes for Create Account and Forgot Password */}
-            <Route path="/create-account" element={<CreateAccountPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          </Routes>
-        )}
+      <div className='App'>
+        <Routes>
+          {/* If the user is authenticated, redirect them to /dashboard */}
+          {isAuthenticated ? (
+            <>
+              <Route path='/' element={<Navigate to='/dashboard' />} />
+              <Route path='/dashboard' element={ <Dashboard setIsAuthenticated={setIsAuthenticated} /> } />
+              <Route path='/manage' element={<Manage setIsAuthenticated={setIsAuthenticated} />} />
+              <Route path='/bids' element={<Bids setIsAuthenticated={setIsAuthenticated} />} />
+              <Route path='/profile' element={<Profile setIsAuthenticated={setIsAuthenticated} />} />
+              <Route path='/settings' element={<Settings setIsAuthenticated={setIsAuthenticated} />} />
+            </>
+          ) : (
+            <>
+              <Route path='/' element={<LoginPage onLogin={handleLogin} />} />
+              <Route path='/create-account' element={<CreateAccountPage />} />
+              <Route path='/forgot-password' element={<ForgotPasswordPage />} />
+            </>
+          )}
+        </Routes>
       </div>
     </Router>
   );
