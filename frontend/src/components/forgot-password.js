@@ -5,8 +5,9 @@ const ForgotPasswordPage = () => {
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
   const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     // Email validation regex
@@ -21,8 +22,26 @@ const ForgotPasswordPage = () => {
     // Clear the error if email is valid
     setEmailError('');
 
-    // Simulate sending reset password link
-    setMessage('Password reset link has been sent to your email.');
+    try {
+      // Send request to backend
+      const response = await fetch('http://localhost:5000/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setMessage(data.message);
+      } else {
+        setError(data.message);
+      }
+    } catch (err) {
+      setError('Server error. Please try again later.');
+    }
   };
 
   return (
@@ -44,6 +63,7 @@ const ForgotPasswordPage = () => {
         <button type="submit">Send Reset Link</button>
 
         {message && <p className="message">{message}</p>}
+        {error && <p className="error">{error}</p>}
       </form>
     </div>
   );

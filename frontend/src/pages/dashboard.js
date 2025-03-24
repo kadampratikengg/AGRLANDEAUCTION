@@ -150,7 +150,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
         {/* Content Section */}
         <div className='main-content'>
-          <h2>Welcome to the Dashboard</h2>
+          <h1>Welcome to the Dashboard</h1>
           {/* Add additional dashboard content here */}
         </div>
       </div>
