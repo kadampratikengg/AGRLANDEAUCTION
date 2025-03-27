@@ -32,9 +32,6 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     navigate('/');
   };
 
-
-  
-
   // Navigate to Profile page
   const handleProfile = () => {
     navigate('/profile');
@@ -150,8 +147,18 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
         {/* Content Section */}
         <div className='main-content'>
-          <h1>Welcome to the Dashboard</h1>
-          {/* Add additional dashboard content here */}
+          <h1>Dashboard</h1>
+          
+          {/* New 2 columns layout */}
+          <div className="grid-container">
+            <div className="grid-item">
+              <h2>Column 1</h2>
+              
+            </div>
+            <div className="grid-item">
+              <h2>Column 2</h2>
+            </div>
+          </div>
         </div>
       </div>
     </div>
