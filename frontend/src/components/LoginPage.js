@@ -24,7 +24,7 @@ const LoginPage = ({ onLogin }) => {
 
     try {
       // Send POST request to /login for user login
-      const response = await fetch('http://15.206.28.128:5000/login', {  // Change URL to /login
+      const response = await fetch('http://localhost:5000/login', {  // Change URL to /login
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -37,7 +37,7 @@ const CreateAccountPage = () => {
     try {
       // POST request with credentials flag
       const response = await axios.post(
-        'http://15.206.28.128:5000/create-account',
+        'http://localhost:5000/create-account',
         { email, password, confirmPassword },
         { withCredentials: true } // Allow credentials (cookies, etc.)
       );

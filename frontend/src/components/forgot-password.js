@@ -25,7 +25,7 @@ const ForgotPasswordPage = () => {
     try {
       // Send request to backend
       const response = await fetch(
-        'http://15.206.28.128:5000/forgot-password',
+        'http://localhost:5000/forgot-password',
         {
           method: 'POST',
           headers: {
