@@ -24,13 +24,16 @@ const ForgotPasswordPage = () => {
 
     try {
       // Send request to backend
-      const response = await fetch('http://localhost:5000/forgot-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
+      const response = await fetch(
+        'http://15.206.28.128:5000/forgot-password',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email }),
+        }
+      );
 
       const data = await response.json();
 
@@ -45,25 +48,25 @@ const ForgotPasswordPage = () => {
   };
 
   return (
-    <div className="login-page">
+    <div className='login-page'>
       <form onSubmit={handleSubmit}>
         <h2>Forgot Password</h2>
 
-        <div className="input-field">
+        <div className='input-field'>
           <label>Email</label>
           <input
-            type="email"
+            type='email'
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
-          {emailError && <p className="error">{emailError}</p>}
+          {emailError && <p className='error'>{emailError}</p>}
         </div>
 
-        <button type="submit">Send Reset Link</button>
+        <button type='submit'>Send Reset Link</button>
 
-        {message && <p className="message">{message}</p>}
-        {error && <p className="error">{error}</p>}
+        {message && <p className='message'>{message}</p>}
+        {error && <p className='error'>{error}</p>}
       </form>
     </div>
   );

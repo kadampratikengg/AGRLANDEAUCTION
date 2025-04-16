@@ -37,7 +37,7 @@ const CreateAccountPage = () => {
     try {
       // POST request with credentials flag
       const response = await axios.post(
-        'http://localhost:5000/create-account',
+        'http://15.206.28.128:5000/create-account',
         { email, password, confirmPassword },
         { withCredentials: true } // Allow credentials (cookies, etc.)
       );
@@ -59,47 +59,47 @@ const CreateAccountPage = () => {
   };
 
   return (
-    <div className="login-page">
+    <div className='login-page'>
       <form onSubmit={handleSubmit}>
         <h2>Create New Account</h2>
 
-        <div className="input-field">
+        <div className='input-field'>
           <label>Email</label>
           <input
-            type="email"
+            type='email'
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
-          {emailError && <p className="error">{emailError}</p>}
+          {emailError && <p className='error'>{emailError}</p>}
         </div>
 
-        <div className="input-field">
+        <div className='input-field'>
           <label>Password</label>
           <input
-            type="password"
+            type='password'
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
           />
         </div>
 
-        <div className="input-field">
+        <div className='input-field'>
           <label>Confirm Password</label>
           <input
-            type="password"
+            type='password'
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             required
           />
-          {passwordError && <p className="error">{passwordError}</p>}
+          {passwordError && <p className='error'>{passwordError}</p>}
         </div>
 
-        <button type="submit" disabled={loading}>
+        <button type='submit' disabled={loading}>
           {loading ? 'Creating Account...' : 'Create Account'}
         </button>
 
-        {errorMessage && <p className="error">{errorMessage}</p>}
+        {errorMessage && <p className='error'>{errorMessage}</p>}
       </form>
     </div>
   );
