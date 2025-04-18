@@ -26,15 +26,10 @@ const Dashboard = ({ setIsAuthenticated }) => {
   const [selectedTaluka, setSelectedTaluka] = useState('');
   const [addressline1, setAddressLine1] = useState('');
   const [pincode, setPincode] = useState('');
-
-  const [itemName, setItemName] = useState('');
-  const [weight, setWeight] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [deliveryAddress, setDeliveryAddress] = useState('');
   const [orderItems, setOrderItems] = useState([]);
-
+  
   const navigate = useNavigate();
-
+  
   const locationData = {
     Maharashtra: {
       Pune: {
@@ -82,37 +77,78 @@ const Dashboard = ({ setIsAuthenticated }) => {
   const handleProfile = () => navigate('/profile');
   const handleSettings = () => navigate('/settings');
 
-  const handleContactFormSubmit = (e) => {
+  const handleContactFormSubmit = async (e) => {
     e.preventDefault();
-    const fullAddress = `${selectedTaluka}, ${selectedDistrict}, ${selectedState}, India - ${pincode}`;
-    console.log('Contact Form:', {
+    const fullAddress = `${addressline1}, ${selectedTaluka}, ${selectedDistrict}, ${selectedState}, India - ${pincode}`;
+    const data = {
       businessName,
       ownerName,
       contactNumber,
       email,
       businessCategory,
       address: fullAddress,
-    });
-    alert('Contact form submitted!');
-    setShowContactForm(false);
-    resetContactForm();
+      state: selectedState,
+      district: selectedDistrict,
+      taluka: selectedTaluka,
+      pincode
+    };
+  
+    try {
+      const res = await fetch('http://localhost:5000/submit-contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+      });
+  
+      const result = await res.json();
+      alert(result.message);
+      resetContactForm();
+      setShowContactForm(false);
+    } catch (err) {
+      console.error('Error submitting contact form:', err);
+      alert('Failed to submit contact form');
+    }
   };
+  
 
-  const handleOrderFormSubmit = (e) => {
+  const handleOrderFormSubmit = async (e) => {
     e.preventDefault();
-    const fullAddress = `${selectedTaluka}, ${selectedDistrict}, ${selectedState}, India - ${pincode}`;
-    console.log('Order Form:', {
+    const fullAddress = `${addressline1}, ${selectedTaluka}, ${selectedDistrict}, ${selectedState}, India - ${pincode}`;
+    const data = {
       businessName,
       ownerName,
       contactNumber,
       email,
       deliveryAddress: fullAddress,
-      items: orderItems,
-    });
-    alert('Order form submitted!');
-    setShowOrderForm(false);
-    resetOrderForm();
+      state: selectedState,
+      district: selectedDistrict,
+      taluka: selectedTaluka,
+      pincode,
+      items: orderItems
+      
+    };
+  
+    try {
+      const res = await fetch('http://localhost:5000/submit-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+      });
+  
+      const result = await res.json();
+      alert(result.message);
+      resetOrderForm();
+      setShowOrderForm(false);
+    } catch (err) {
+      console.error('Error submitting order form:', err);
+      alert('Failed to submit order form');
+    }
   };
+  
 
   const resetContactForm = () => {
     setBusinessName('');
@@ -128,17 +164,19 @@ const Dashboard = ({ setIsAuthenticated }) => {
   };
 
   const resetOrderForm = () => {
-    setItemName('');
-    setWeight('');
-    setQuantity('');
-    setDeliveryAddress('');
-    setOrderItems([]);
+    setBusinessName('');
+    setOwnerName('');
+    setContactNumber('');
+    setEmail('');
+    setOrderItems([]); // clears quantity input table
     setSelectedState('');
     setSelectedDistrict('');
     setSelectedTaluka('');
     setPincode('');
     setAddressLine1('');
   };
+  
+  
 
   return (
     <div className='dashboard'>
