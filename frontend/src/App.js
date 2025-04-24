@@ -8,6 +8,7 @@ import Manage from './pages/manage';
 import Bids from './pages/bids';
 import Settings from './pages/settings';
 import Profile from './pages/profile';
+import Voting from './pages/Voting'; // Import Voting component
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -40,6 +41,7 @@ const App = () => {
               <Route path='/bids' element={<Bids setIsAuthenticated={setIsAuthenticated} />} />
               <Route path='/profile' element={<Profile setIsAuthenticated={setIsAuthenticated} />} />
               <Route path='/settings' element={<Settings setIsAuthenticated={setIsAuthenticated} />} />
+              <Route path="/voting/:eventId" element={<Voting />} />
             </>
           ) : (
             <>

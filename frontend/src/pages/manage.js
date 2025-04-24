@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import './dashboard.css'; // This will include the merged CSS for both Navbar and Sidebar
+import React, { useState, useEffect } from 'react';
+import './dashboard.css';
 import {
   FaUserCircle,
   FaChevronLeft,
@@ -9,57 +9,100 @@ import {
   FaGavel,
 } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
-import * as XLSX from 'xlsx'; // Importing XLSX library to handle excel file parsing
+import * as XLSX from 'xlsx';
+import { v4 as uuidv4 } from 'uuid';
 
 const Dashboard = ({ setIsAuthenticated, name }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isSidebarMinimized, setIsSidebarMinimized] = useState(true); // Default state is minimized
+  const [isSidebarMinimized, setIsSidebarMinimized] = useState(true);
   const [fileData, setFileData] = useState([]);
   const [checkedRows, setCheckedRows] = useState([]);
   const [fileName, setFileName] = useState('');
-  const [isCreateEventClicked, setIsCreateEventClicked] = useState(false); // Track Create Event button click
-  const [showEventForm, setShowEventForm] = useState(false); // Track when to show event form
-  const [selectedData, setSelectedData] = useState([]); // Store selected rows for event creation
+  const [isCreateEventClicked, setIsCreateEventClicked] = useState(false);
+  const [showEventForm, setShowEventForm] = useState(false);
+  const [selectedData, setSelectedData] = useState([]);
   const [eventDate, setEventDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [stopTime, setStopTime] = useState('');
   const [eventName, setEventName] = useState('');
   const [eventDescription, setEventDescription] = useState('');
+  const [generatedLink, setGeneratedLink] = useState('');
+  const [eventCreated, setEventCreated] = useState(false);
+  const [activeEvents, setActiveEvents] = useState([]);
   const navigate = useNavigate();
 
-  // Toggle the dropdown visibility
+  // Automatically remove expired events every 60 seconds
+  useEffect(() => {
+    const events = [];
+    const currentTime = new Date().getTime();
+  
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key.startsWith('event-')) {
+        const event = JSON.parse(localStorage.getItem(key));
+        if (event.expiry > currentTime) {
+          events.push(event);
+        } else {
+          localStorage.removeItem(key); // Clean up expired
+        }
+      }
+    }
+  
+    setActiveEvents(events);
+  }, []);
+  
+
+  const resetForm = () => {
+    setFileName('');
+    setFileData([]);
+    setCheckedRows([]);
+    setSelectedData([]);
+    setShowEventForm(false);
+    setEventDate('');
+    setStartTime('');
+    setStopTime('');
+    setEventName('');
+    setEventDescription('');
+    setIsCreateEventClicked(false);
+    setGeneratedLink('');
+    setEventCreated(false);
+  };
+
+  const handleEditEvent = (eventId) => {
+    const eventToEdit = activeEvents.find((e) => e.id === eventId);
+    setEventDate(eventToEdit.date);
+    setStartTime(eventToEdit.startTime);
+    setStopTime(eventToEdit.stopTime);
+    setEventName(eventToEdit.name);
+    setEventDescription(eventToEdit.description);
+    setSelectedData(eventToEdit.selectedData);
+    setShowEventForm(true);
+    setIsCreateEventClicked(true);
+    setActiveEvents((events) => events.filter((e) => e.id !== eventId));
+  };
+
   const toggleDropdown = () => {
     setIsDropdownOpen((prevState) => !prevState);
   };
 
-  // Handle Logout
   const handleLogout = () => {
-    // Remove authentication state from localStorage
     localStorage.removeItem('isAuthenticated');
-
-    // Update the authentication state in App.js
     setIsAuthenticated(false);
-
-    // Redirect to the Login page
     navigate('/');
   };
 
-  // Navigate to Profile page
   const handleProfile = () => {
     navigate('/profile');
   };
 
-  // Navigate to Settings page
   const handleSettings = () => {
     navigate('/settings');
   };
 
-  // Toggle sidebar minimize state
   const toggleSidebar = () => {
     setIsSidebarMinimized((prevState) => !prevState);
   };
 
-  // Handle file upload and parse the Excel file
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (file && file.name.endsWith('.xlsx')) {
@@ -79,7 +122,6 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     }
   };
 
-  // Handle checkbox change (select/deselect row)
   const handleCheckboxChange = (index) => {
     setCheckedRows((prevCheckedRows) => {
       if (prevCheckedRows.includes(index)) {
@@ -90,89 +132,99 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     });
   };
 
-  // Function to handle event creation (display upload option)
   const handleCreateEvent = () => {
-    setIsCreateEventClicked(true); // Show upload section when "Create Event" is clicked
+    setIsCreateEventClicked(true);
   };
 
-  // Handle "Next" button click to show selected rows
   const handleNext = () => {
     const selectedRows = checkedRows.map((index) => fileData[index]);
     setSelectedData(selectedRows);
-    setShowEventForm(true); // Show the event form after "Next"
+    setShowEventForm(true);
   };
 
-  // Handle form submit for event creation
-  const handleEventFormSubmit = (e) => {
+  const handleDeleteEvent = (id) => {
+    // Logic to remove the event from state or trigger backend deletion
+    setActiveEvents(prevEvents => prevEvents.filter(event => event.id !== id));
+  };
+  
+
+  const handleEventFormSubmit = async (e) => {
     e.preventDefault();
+  
+    const expiryTime = new Date().getTime() + 60 * 60 * 1000; // 1 hour from now
+    const eventId = uuidv4();
+  
     const eventDetails = {
+      id: eventId,
       date: eventDate,
-      startTime: startTime,
-      stopTime: stopTime,
+      startTime,
+      stopTime,
       name: eventName,
       description: eventDescription,
       selectedData,
+      expiry: expiryTime,
+      link: `${window.location.origin}/voting/${eventId}`,
     };
-
-    // You can now store eventDetails or use it for further processing
-    console.log(eventDetails);
+  
+    try {
+      // Send event to backend (MongoDB)
+      const response = await fetch('http://localhost:5000/api/events', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(eventDetails),
+      });
+  
+      if (!response.ok) {
+        throw new Error('Failed to save event to database');
+      }
+  
+      const result = await response.json();
+  
+      // Optional: Still store in localStorage if needed
+      localStorage.setItem(`event-${eventId}`, JSON.stringify(eventDetails));
+  
+      // Update UI
+      setGeneratedLink(result.link || eventDetails.link);
+      setEventCreated(true);
+      setActiveEvents((prev) => [...prev, eventDetails]);
+    } catch (error) {
+      console.error('Error submitting event:', error);
+      alert('There was an error creating the event. Please try again.');
+    }
   };
+  
 
   return (
     <div className='dashboard'>
-      {/* Sidebar */}
       <div className={`sidebar ${isSidebarMinimized ? 'minimized' : ''}`}>
         <button className='minimize-btn' onClick={toggleSidebar}>
           {isSidebarMinimized ? <FaChevronRight /> : <FaChevronLeft />}
         </button>
-
-        {isSidebarMinimized ? (
-          <div className='sidebar-logo'>
-            <ul>
-              <li>
-                <button onClick={() => navigate('/dashboard')}>
-                  <FaTachometerAlt size={20} />
-                  {!isSidebarMinimized && 'Dashboard'}
-                </button>
-              </li>
-              <li>
-                <button onClick={() => navigate('/manage')}>
-                  <FaCogs size={20} />
-                  {!isSidebarMinimized && 'Manage Auctions'}
-                </button>
-              </li>
-              <li>
-                <button onClick={() => navigate('/bids')}>
-                  <FaGavel size={20} />
-                  {!isSidebarMinimized && 'Bids'}
-                </button>
-              </li>
-            </ul>
-          </div>
-        ) : (
-          <ul>
-            <li>
-              <button onClick={() => navigate('/dashboard')}>
-                {!isSidebarMinimized && 'Dashboard'}
-              </button>
-            </li>
-            <li>
-              <button onClick={() => navigate('/manage')}>
-                {!isSidebarMinimized && 'Manage Auctions'}
-              </button>
-            </li>
-            <li>
-              <button onClick={() => navigate('/bids')}>
-                {!isSidebarMinimized && 'Bids'}
-              </button>
-            </li>
-          </ul>
-        )}
+        <ul>
+          <li>
+            <button onClick={() => navigate('/dashboard')}>
+              <FaTachometerAlt size={20} />
+              {!isSidebarMinimized && 'Dashboard'}
+            </button>
+          </li>
+          <li>
+            <button onClick={() => navigate('/manage')}>
+              <FaCogs size={20} />
+              {!isSidebarMinimized && 'Manage Auctions'}
+            </button>
+          </li>
+          <li>
+            <button onClick={() => navigate('/bids')}>
+              <FaGavel size={20} />
+              {!isSidebarMinimized && 'Bids'}
+            </button>
+          </li>
+        </ul>
       </div>
 
-      {/* Main Content Area */}
       <div className='content'>
-        {/* Navbar */}
         <div className='navbar'>
           <h1>A M</h1>
           <nav>
@@ -184,21 +236,9 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                 {isDropdownOpen && (
                   <div className='dropdown'>
                     <ul>
-                      <li>
-                        <button className='dropdown-item' onClick={handleProfile}>
-                          Profile
-                        </button>
-                      </li>
-                      <li>
-                        <button className='dropdown-item' onClick={handleSettings}>
-                          Settings
-                        </button>
-                      </li>
-                      <li>
-                        <button className='dropdown-item' onClick={handleLogout}>
-                          Log Out
-                        </button>
-                      </li>
+                      <li><button onClick={handleProfile}>Profile</button></li>
+                      <li><button onClick={handleSettings}>Settings</button></li>
+                      <li><button onClick={handleLogout}>Log Out</button></li>
                     </ul>
                   </div>
                 )}
@@ -207,44 +247,46 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
           </nav>
         </div>
 
-        {/* Content Section */}
         <div className='main-content'>
           <h2>Welcome to the Manage</h2>
-
-          {/* Add two sections "Current" and "Create" */}
           <div className="sections-container">
-            <div className="current-section">
-              <h3>Current</h3>
-              <p>No current events, auctions, or items.</p>
-            </div>
+          <div className="current-section">
+  <h3>Upcoming Event</h3>
+  {activeEvents.length === 0 ? (
+    <p>No current events, auctions, or items.</p>
+  ) : (
+    activeEvents.map((event) => (
+      <div key={event.id} className="current-event">
+        <span 
+          className="delete-icon" 
+          onClick={() => handleDeleteEvent(event.id)} 
+          title="Delete Event"
+        >
+          🗑️
+        </span>
+        <h4>{event.name}</h4>
+        <p>{event.description}</p>
+        <p>Date: {event.date}</p>
+        <p>Start: {event.startTime} - Stop: {event.stopTime}</p>
+        <a href={event.link} target="_blank" rel="noopener noreferrer">{event.link}</a>
+        <button onClick={() => handleEditEvent(event.id)}>Edit Event</button>
+      </div>
+    ))
+  )}
+</div>
+
+
+
+
             <div className="create-section">
               <h3>Create</h3>
-              <button className="create-event-btn" onClick={handleCreateEvent}>
-                Create Event
-              </button>
+              <button onClick={handleCreateEvent}>Create Event</button>
               <p>File Uploaded: {fileName}</p>
-              <a
-                href="../file/AllDetailsFile.xlsx"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Download Sample File
-              </a>
-              {/* Show file upload option after clicking "Create Event" */}
+              <a href="../file/AllDetailsFile.xlsx" target="_blank" rel="noopener noreferrer">Download Sample File</a>
+
               {isCreateEventClicked && (
                 <div className="upload-section">
-                  <input
-                    type="file"
-                    accept=".xlsx"
-                    onChange={handleFileUpload}
-                    style={{ marginTop: '10px' }}
-                  />
-                  {fileName && (
-                    <div>
-                      <p>File Uploaded: {fileName}</p>
-                    </div>
-                  )}
-
+                  <input type="file" accept=".xlsx" onChange={handleFileUpload} style={{ marginTop: '10px' }} />
                   {fileData.length > 0 && (
                     <div>
                       <h4>Uploaded Excel Data</h4>
@@ -279,79 +321,61 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                   )}
                 </div>
               )}
+
+              {showEventForm && (
+                <div className="event-form-container">
+                  <h3>Create Event</h3>
+                  <h4>Selected Candidate:</h4>
+                  <table>
+                    <thead>
+                      <tr>
+                        {Object.keys(selectedData[0] || {}).map((key) => (
+                          <th key={key}>{key}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedData.map((data, index) => (
+                        <tr key={index}>
+                          {Object.values(data).map((value, i) => (
+                            <td key={i}>{value}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  <form onSubmit={handleEventFormSubmit}>
+                    <label>Date: <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} /></label>
+                    <label>Start Time: <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} /></label>
+                    <label>Stop Time: <input type="time" value={stopTime} onChange={(e) => setStopTime(e.target.value)} /></label>
+                    <label>Event Name: <input type="text" value={eventName} onChange={(e) => setEventName(e.target.value)} /></label>
+                    <label>Description: <textarea value={eventDescription} onChange={(e) => setEventDescription(e.target.value)} /></label>
+                    <button type="submit">Create Event</button>
+                  </form>
+
+                  {eventCreated && (
+                    <div className="event-success-message">
+                      <h4>✅ Event created successfully!</h4>
+                      <p>Share this temporary voting link:</p>
+                      <div className="copy-link-container">
+                        <input type="text" value={generatedLink} readOnly />
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(generatedLink);
+                            alert('Link copied to clipboard!');
+                            resetForm();
+                          }}
+                        >
+                          Copy Link
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Show the event creation form if "Next" is clicked */}
-          {showEventForm && (
-            <div className="event-form-container">
-              <h3>Create Event</h3>
-
-              {/* Display selected rows in a table */}
-              <h4>Selected Candidate:</h4>
-              <table>
-                <thead>
-                  <tr>
-                    {Object.keys(selectedData[0] || {}).map((key) => (
-                      <th key={key}>{key}</th> // Display the headers of selected rows
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedData.map((data, index) => (
-                    <tr key={index}>
-                      {Object.values(data).map((value, i) => (
-                        <td key={i}>{value}</td> // Render the values of the selected row
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <form onSubmit={handleEventFormSubmit}>
-                <div>
-                  <label>Date:</label>
-                  <input
-                    type="date"
-                    value={eventDate}
-                    onChange={(e) => setEventDate(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label>Start Time:</label>
-                  <input
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label>Stop Time:</label>
-                  <input
-                    type="time"
-                    value={stopTime}
-                    onChange={(e) => setStopTime(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label>Event Name:</label>
-                  <input
-                    type="text"
-                    value={eventName}
-                    onChange={(e) => setEventName(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label>Description:</label>
-                  <textarea
-                    value={eventDescription}
-                    onChange={(e) => setEventDescription(e.target.value)}
-                  />
-                </div>
-                <button type="submit">Create Event</button>
-              </form>
-            </div>
-          )}
         </div>
       </div>
     </div>

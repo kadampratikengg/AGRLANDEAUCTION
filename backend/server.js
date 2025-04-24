@@ -29,41 +29,44 @@ mongoose
     useUnifiedTopology: true,
   })
   .then(() => console.log('✅ Connected to MongoDB'))
-  .catch((error) => console.error('❌ MongoDB connection error:', error));
+  .catch((error) => {
+    console.error('❌ MongoDB connection error:', error);
+    process.exit(1);
+  });
 
 // ===== Models =====
 const Contact = mongoose.model(
   'Contact',
   new mongoose.Schema({
-    businessName: { type: String, required: true },
-    ownerName: { type: String, required: true },
-    contactNumber: { type: String, required: true },
-    email: { type: String, required: true },
-    businessCategory: { type: String, required: true },
-    address: { type: String, required: true },
-    state: { type: String, required: true },
-    district: { type: String, required: true },
-    taluka: { type: String, required: true },
-    pincode: { type: String, required: true },
+    businessName: String,
+    ownerName: String,
+    contactNumber: String,
+    email: String,
+    businessCategory: String,
+    address: String,
+    state: String,
+    district: String,
+    taluka: String,
+    pincode: String,
   })
 );
 
 const Order = mongoose.model(
   'Order',
   new mongoose.Schema({
-    businessName: { type: String, required: true },
-    ownerName: { type: String, required: true },
-    contactNumber: { type: String, required: true },
-    email: { type: String, required: true },
-    deliveryAddress: { type: String, required: true },
-    state: { type: String, required: true },
-    district: { type: String, required: true },
-    taluka: { type: String, required: true },
-    pincode: { type: String, required: true },
+    businessName: String,
+    ownerName: String,
+    contactNumber: String,
+    email: String,
+    deliveryAddress: String,
+    state: String,
+    district: String,
+    taluka: String,
+    pincode: String,
     items: [
       {
-        weight: { type: String, required: true },
-        quantity: { type: Number, required: true },
+        weight: String,
+        quantity: Number,
       },
     ],
   })
@@ -74,6 +77,21 @@ const User = mongoose.model(
   new mongoose.Schema({
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
+  })
+);
+
+const Event = mongoose.model(
+  'Event',
+  new mongoose.Schema({
+    id: { type: String, required: true },
+    date: { type: String, required: true },
+    startTime: { type: String, required: true },
+    stopTime: { type: String, required: true },
+    name: { type: String, required: true },
+    description: { type: String, required: true },
+    selectedData: [{ type: String, required: true }],
+    expiry: { type: Number, required: true },
+    link: { type: String, required: true },
   })
 );
 
@@ -211,10 +229,47 @@ app.post('/submit-order', async (req, res) => {
   }
 });
 
+// Submit Event
+app.post('/api/events', async (req, res) => {
+  console.log('📥 Event submission received:', req.body);
+
+  const { id, date, startTime, stopTime, name, description, selectedData, expiry, link } = req.body;
+
+  if (!id || !date || !startTime || !stopTime || !name || !description || !selectedData || !expiry || !link) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  try {
+    const event = new Event({
+      id,
+      date,
+      startTime,
+      stopTime,
+      name,
+      description,
+      selectedData: Array.isArray(selectedData) ? selectedData : [String(selectedData)],
+      expiry: Number(expiry),
+      link,
+    });
+
+    console.log('🧪 Validating event...');
+    await event.validate();
+
+    console.log('💾 Saving event to DB...');
+    await event.save();
+
+    console.log('✅ Event saved successfully');
+    res.status(201).json({ message: 'Event created successfully', link: event.link });
+  } catch (error) {
+    console.error('❌ Error saving event:', error);
+    res.status(500).json({ message: 'Failed to create event', error: error.message });
+  }
+});
+
 // Preflight CORS
 app.options('*', cors(corsOptions));
 
-// Start Server
+// ===== Start Server =====
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://0.0.0.0:${PORT}`);
 });
