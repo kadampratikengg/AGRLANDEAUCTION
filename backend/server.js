@@ -7,6 +7,9 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -20,12 +23,31 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(bodyParser.json());
+
+// ===== File Storage Configuration =====
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = './uploads';
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath);
+    }
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({ storage });
 
 // ===== MongoDB Connection =====
 mongoose
   .connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
+OME
     useUnifiedTopology: true,
   })
   .then(() => console.log('✅ Connected to MongoDB'))
@@ -89,7 +111,18 @@ const Event = mongoose.model(
     stopTime: { type: String, required: true },
     name: { type: String, required: true },
     description: { type: String, required: true },
-    selectedData: [{ type: String, required: true }],
+    selectedData: [
+      {
+        type: mongoose.Schema.Types.Mixed,
+        required: true,
+      },
+    ],
+    candidateImages: [
+      {
+        candidateIndex: Number,
+        imagePath: String,
+      },
+    ],
     expiry: { type: Number, required: true },
     link: { type: String, required: true },
   })
@@ -105,6 +138,11 @@ const transporter = nodemailer.createTransport({
 });
 
 // ===== Routes =====
+
+// Health check
+app.get('/', (req, res) => {
+  res.send('✅ Backend is running');
+});
 
 // Create Account
 app.post('/create-account', async (req, res) => {
@@ -229,17 +267,54 @@ app.post('/submit-order', async (req, res) => {
   }
 });
 
-// Submit Event
-app.post('/api/events', async (req, res) => {
-  console.log('📥 Event submission received:', req.body);
+// Create Event
+app.post('/api/events', upload.array('images', 10), async (req, res) => {
+  console.log('📥 Event submission received:', req.body, req.files);
 
-  const { id, date, startTime, stopTime, name, description, selectedData, expiry, link } = req.body;
+  const {
+    id,
+    date,
+    startTime,
+    stopTime,
+    name,
+    description,
+    selectedData,
+    candidateImages,
+    expiry,
+    link,
+  } = req.body;
 
-  if (!id || !date || !startTime || !stopTime || !name || !description || !selectedData || !expiry || !link) {
-    return res.status(400).json({ message: 'Missing required fields' });
+  // Validate required fields
+  const missingFields = [];
+  if (!id) missingFields.push('id');
+  if (!date) missingFields.push('date');
+  if (!startTime) missingFields.push('startTime');
+  if (!stopTime) missingFields.push('stopTime');
+  if (!name) missingFields.push('name');
+  if (!description) missingFields.push('description');
+  if (!selectedData) missingFields.push('selectedData');
+  if (!expiry) missingFields.push('expiry');
+  if (!link) missingFields.push('link');
+
+  if (missingFields.length > 0) {
+    return res.status(400).json({ message: `Missing required fields: ${missingFields.join(', ')}` });
   }
 
   try {
+    const parsedSelectedData = JSON.parse(selectedData);
+    const parsedCandidateImages = candidateImages ? JSON.parse(candidateImages) : [];
+
+    // Validate selectedData
+    if (!Array.isArray(parsedSelectedData) || parsedSelectedData.length === 0) {
+      return res.status(400).json({ message: 'selectedData must be a non-empty array' });
+    }
+
+    // Map uploaded images to their paths
+    const imagePaths = req.files.map((file, index) => ({
+      candidateIndex: parsedCandidateImages[index]?.candidateIndex ?? index,
+      imagePath: file.path,
+    }));
+
     const event = new Event({
       id,
       date,
@@ -247,18 +322,19 @@ app.post('/api/events', async (req, res) => {
       stopTime,
       name,
       description,
-      selectedData: Array.isArray(selectedData) ? selectedData : [String(selectedData)],
+      selectedData: parsedSelectedData,
+      candidateImages: imagePaths,
       expiry: Number(expiry),
       link,
     });
 
-    console.log('🧪 Validating event...');
+    console.log('🧪 Validating event:', event);
     await event.validate();
 
     console.log('💾 Saving event to DB...');
     await event.save();
 
-    console.log('✅ Event saved successfully');
+    console.log('✅ Event saved successfully:', event);
     res.status(201).json({ message: 'Event created successfully', link: event.link });
   } catch (error) {
     console.error('❌ Error saving event:', error);
@@ -266,8 +342,108 @@ app.post('/api/events', async (req, res) => {
   }
 });
 
-// Preflight CORS
-app.options('*', cors(corsOptions));
+// Update Event
+app.put('/api/events/:id', upload.array('images', 10), async (req, res) => {
+  console.log('📥 Event update request for ID:', req.params.id, 'Data:', req.body, req.files);
+
+  const {
+    date,
+    startTime,
+    stopTime,
+    name,
+    description,
+    selectedData,
+    candidateImages,
+    expiry,
+    link,
+  } = req.body;
+
+  // Validate required fields
+  const missingFields = [];
+  if (!date) missingFields.push('date');
+  if (!startTime) missingFields.push('startTime');
+  if (!stopTime) missingFields.push('stopTime');
+  if (!name) missingFields.push('name');
+  if (!description) missingFields.push('description');
+  if (!selectedData) missingFields.push('selectedData');
+  if (!expiry) missingFields.push('expiry');
+  if (!link) missingFields.push('link');
+
+  if (missingFields.length > 0) {
+    return res.status(400).json({ message: `Missing required fields: ${missingFields.join(', ')}` });
+  }
+
+  try {
+    const parsedSelectedData = JSON.parse(selectedData);
+    const parsedCandidateImages = candidateImages ? JSON.parse(candidateImages) : [];
+
+    // Validate selectedData
+    if (!Array.isArray(parsedSelectedData) || parsedSelectedData.length === 0) {
+      return res.status(400).json({ message: 'selectedData must be a non-empty array' });
+    }
+
+    // Map uploaded images to their paths
+    const imagePaths = req.files.map((file, index) => ({
+      candidateIndex: parsedCandidateImages[index]?.candidateIndex ?? index,
+      imagePath: file.path,
+    }));
+
+    const event = await Event.findOneAndUpdate(
+      { id: req.params.id },
+      {
+        date,
+        startTime,
+        stopTime,
+        name,
+        description,
+        selectedData: parsedSelectedData,
+        candidateImages: imagePaths,
+        expiry: Number(expiry),
+        link,
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    console.log('✅ Event updated successfully:', event);
+    res.status(200).json({ message: 'Event updated successfully', link: event.link });
+  } catch (error) {
+    console.error('❌ Error updating event:', error);
+    res.status(500).json({ message: 'Failed to update event', error: error.message });
+  }
+});
+
+// Delete Event
+app.delete('/api/events/:id', async (req, res) => {
+  console.log('📥 Event deletion request for ID:', req.params.id);
+
+  try {
+    const event = await Event.findOneAndDelete({ id: req.params.id });
+
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    // Delete stored images
+    event.candidateImages.forEach((image) => {
+      if (image.imagePath && fs.existsSync(image.imagePath)) {
+        fs.unlinkSync(image.imagePath);
+      }
+    });
+
+    console.log('✅ Event deleted successfully:', event);
+    res.status(200).json({ message: 'Event deleted successfully' });
+  } catch (error) {
+    console.error('❌ Error deleting event:', error);
+    res.status(500).json({ message: 'Failed to delete event', error: error.message });
+  }
+});
+
+// Serve uploaded files
+app.use('/uploads', express.static('uploads'));
 
 // ===== Start Server =====
 app.listen(PORT, () => {

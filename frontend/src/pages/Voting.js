@@ -1,74 +1,122 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import './Voting.css';
+
 const Voting = () => {
   const { eventId } = useParams();
-  const navigate = useNavigate();
-  const [eventData, setEventData] = useState(null);
-  const [images, setImages] = useState({});
-  const [isStartTimeReached, setIsStartTimeReached] = useState(false);
+  const navigate = useNavigate(); // Add useNavigate for navigation
+  const [event, setEvent] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [votingStarted, setVotingStarted] = useState(false);
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem(`event-${eventId}`));
-    if (data) {
-      setEventData(data);
-      const now = new Date().getTime();
-      const eventStart = new Date(`${data.date} ${data.startTime}`).getTime();
-      if (now >= eventStart) {
-        setIsStartTimeReached(true);
+    const fetchEvent = async () => {
+      try {
+        const localEvent = JSON.parse(localStorage.getItem(`event-${eventId}`));
+        if (localEvent && localEvent.expiry > new Date().getTime()) {
+          setEvent(localEvent);
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch(`http://localhost:5000/api/events/${eventId}`, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to fetch event');
+        }
+
+        const eventData = await response.json();
+        setEvent(eventData);
+        localStorage.setItem(`event-${eventId}`, JSON.stringify(eventData));
+        setLoading(false);
+      } catch (err) {
+        setError(err.message);
+        setLoading(false);
       }
-    }
+    };
+
+    fetchEvent();
   }, [eventId]);
 
-  if (!eventData) return <div>❌ Invalid event link.</div>;
-
-  const now = new Date().getTime();
-  if (now > eventData.expiry) return <div>⏰ This link has expired.</div>;
-
-  const handleImageChange = (index, file) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImages(prev => ({ ...prev, [index]: reader.result }));
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleStart = () => {
+  const handleStartVoting = () => {
+    console.log('Voting started at:', new Date().toLocaleTimeString());
+    setVotingStarted(true);
+    // Navigate to the voting start page
     navigate(`/voting/${eventId}/start`);
+
+    // Optional: Send to backend
+    // fetch(`http://localhost:5000/api/events/${eventId}/start`, {
+    //   method: 'POST',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    // }).catch(err => console.error('Failed to start voting:', err));
   };
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error}</div>;
+  if (!event) return <div>Event not found</div>;
 
   return (
     <div className="voting-container">
-      <h2>{eventData.name}</h2>
-      <p>{eventData.description}</p>
-      <p>Date: {eventData.date}</p>
-      <p>Time: {eventData.startTime} - {eventData.stopTime}</p>
+      <h1>{event.name}</h1>
+      <p><strong>Description:</strong> {event.description}</p>
+      <p><strong>Date:</strong> {event.date}</p>
+      <p><strong>Time:</strong> {event.startTime} - {event.stopTime}</p>
 
-      <h4>Participants:</h4>
-      <ul className="participant-list">
-        {eventData.selectedData.map((entry, index) => (
-          <li key={index}>
-            {Object.values(entry).join(' - ')}
-            <div>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleImageChange(index, e.target.files[0])}
-              />
-            </div>
-            {images[index] && (
-              <img
-                src={images[index]}
-                alt={`Participant ${index}`}
-                style={{ width: '100px', marginTop: '0.5rem' }}
-              />
-            )}
-          </li>
-        ))}
-      </ul>
+      <h2>Uploaded File Data</h2>
+      <p>
+        Note: Full file data is not available unless stored by the backend. Displaying selected candidate data below.
+      </p>
 
-      {isStartTimeReached && (
-        <button className="start-now-btn" onClick={handleStart}>🚀 Start Now</button>
+      <h2>Selected Candidates</h2>
+      {event.selectedData && event.selectedData.length > 0 ? (
+        <table>
+          <thead>
+            <tr>
+              {Object.keys(event.selectedData[0]).map((key) => (
+                <th key={key}>{key}</th>
+              ))}
+              <th>Image</th>
+            </tr>
+          </thead>
+          <tbody>
+            {event.selectedData.map((data, index) => (
+              <tr key={index}>
+                {Object.values(data).map((value, i) => (
+                  <td key={i}>{value}</td>
+                ))}
+                <td>
+                  {event.candidateImages && event.candidateImages[index] ? (
+                    <img
+                      src={event.candidateImages[index].dataUrl}
+                      alt={`Candidate ${index + 1}`}
+                      style={{ maxWidth: '100px', height: 'auto' }}
+                    />
+                  ) : (
+                    'No image'
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p>No candidates selected.</p>
+      )}
+
+      {!votingStarted ? (
+        <button onClick={handleStartVoting} className="start-button">
+          Start Voting
+        </button>
+      ) : (
+        <p className="started-text">Voting has started!</p>
       )}
     </div>
   );

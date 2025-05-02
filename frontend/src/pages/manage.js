@@ -29,29 +29,11 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const [generatedLink, setGeneratedLink] = useState('');
   const [eventCreated, setEventCreated] = useState(false);
   const [activeEvents, setActiveEvents] = useState([]);
+  const [editingEventId, setEditingEventId] = useState(null);
+  const [candidateImages, setCandidateImages] = useState({});
   const navigate = useNavigate();
 
-  // Automatically remove expired events every 60 seconds
-  useEffect(() => {
-    const events = [];
-    const currentTime = new Date().getTime();
-  
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key.startsWith('event-')) {
-        const event = JSON.parse(localStorage.getItem(key));
-        if (event.expiry > currentTime) {
-          events.push(event);
-        } else {
-          localStorage.removeItem(key); // Clean up expired
-        }
-      }
-    }
-  
-    setActiveEvents(events);
-  }, []);
-  
-
+  // Reset form after successful event creation or update
   const resetForm = () => {
     setFileName('');
     setFileData([]);
@@ -66,7 +48,108 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     setIsCreateEventClicked(false);
     setGeneratedLink('');
     setEventCreated(false);
+    setEditingEventId(null);
+    setCandidateImages({});
   };
+
+  // Resize image to approximately 5KB
+  const resizeImage = (file, callback) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        let quality = 0.7;
+        const targetSize = 5 * 1024;
+
+        const ctx = canvas.getContext('2d');
+
+        const tryResize = () => {
+          canvas.width = width;
+          canvas.height = height;
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob(
+            (blob) => {
+              if (blob.size > targetSize && quality > 0.1) {
+                quality -= 0.1;
+                tryResize();
+              } else if (blob.size > targetSize && width > 100) {
+                width *= 0.9;
+                height *= 0.9;
+                tryResize();
+              } else {
+                const resizedFile = new File([blob], file.name, {
+                  type: 'image/jpeg',
+                  lastModified: Date.now(),
+                });
+                const urlReader = new FileReader();
+                urlReader.onload = () => {
+                  callback(urlReader.result, resizedFile);
+                };
+                urlReader.readAsDataURL(resizedFile);
+              }
+            },
+            'image/jpeg',
+            quality
+          );
+        };
+
+        tryResize();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Handle image upload for a specific candidate
+  const handleImageUpload = (index, e) => {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+      resizeImage(file, (dataUrl, resizedFile) => {
+        setCandidateImages((prev) => ({
+          ...prev,
+          [index]: { dataUrl, file: resizedFile },
+        }));
+      });
+    } else {
+      alert('Please upload a valid image file.');
+    }
+  };
+
+  // Clear image for a specific candidate
+  const handleClearImage = (index) => {
+    setCandidateImages((prev) => {
+      const newImages = { ...prev };
+      delete newImages[index];
+      return newImages;
+    });
+  };
+
+  // Periodically clean up expired events and update active events
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const events = [];
+      const currentTime = new Date().getTime();
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith('event-')) {
+          const event = JSON.parse(localStorage.getItem(key));
+          if (event.expiry > currentTime) {
+            events.push(event);
+          } else {
+            localStorage.removeItem(key);
+          }
+        }
+      }
+
+      setActiveEvents(events);
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleEditEvent = (eventId) => {
     const eventToEdit = activeEvents.find((e) => e.id === eventId);
@@ -78,7 +161,8 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     setSelectedData(eventToEdit.selectedData);
     setShowEventForm(true);
     setIsCreateEventClicked(true);
-    setActiveEvents((events) => events.filter((e) => e.id !== eventId));
+    setEditingEventId(eventId);
+    setCandidateImages(eventToEdit.candidateImages || {});
   };
 
   const toggleDropdown = () => {
@@ -142,18 +226,34 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     setShowEventForm(true);
   };
 
-  const handleDeleteEvent = (id) => {
-    // Logic to remove the event from state or trigger backend deletion
-    setActiveEvents(prevEvents => prevEvents.filter(event => event.id !== id));
+  const handleDeleteEvent = async (id) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/events/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete event');
+      }
+
+      localStorage.removeItem(`event-${id}`);
+      setActiveEvents((prevEvents) => prevEvents.filter((event) => event.id !== id));
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      alert(error.message || 'There was an error deleting the event. Please try again.');
+    }
   };
-  
 
   const handleEventFormSubmit = async (e) => {
     e.preventDefault();
-  
-    const expiryTime = new Date().getTime() + 60 * 60 * 1000; // 1 hour from now
-    const eventId = uuidv4();
-  
+
+    const expiryTime = new Date().getTime() + 60 * 60 * 1000;
+    const eventId = editingEventId || uuidv4();
+
     const eventDetails = {
       id: eventId,
       date: eventDate,
@@ -164,37 +264,47 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       selectedData,
       expiry: expiryTime,
       link: `${window.location.origin}/voting/${eventId}`,
+      candidateImages,
     };
-  
+
     try {
-      // Send event to backend (MongoDB)
-      const response = await fetch('http://localhost:5000/api/events', {
-        method: 'POST',
+      const isEditing = !!editingEventId;
+      const url = isEditing
+        ? `http://localhost:5000/api/events/${editingEventId}`
+        : 'http://localhost:5000/api/events';
+      const method = isEditing ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(eventDetails),
       });
-  
+
       if (!response.ok) {
-        throw new Error('Failed to save event to database');
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Failed to ${isEditing ? 'update' : 'create'} event`);
       }
-  
+
       const result = await response.json();
-  
-      // Optional: Still store in localStorage if needed
+
       localStorage.setItem(`event-${eventId}`, JSON.stringify(eventDetails));
-  
-      // Update UI
+      if (isEditing) {
+        setActiveEvents((prev) =>
+          prev.map((event) => (event.id === eventId ? eventDetails : event))
+        );
+      } else {
+        setActiveEvents((prev) => [...prev, eventDetails]);
+      }
       setGeneratedLink(result.link || eventDetails.link);
       setEventCreated(true);
-      setActiveEvents((prev) => [...prev, eventDetails]);
+      resetForm();
     } catch (error) {
-      console.error('Error submitting event:', error);
-      alert('There was an error creating the event. Please try again.');
+      console.error(`Error ${editingEventId ? 'updating' : 'creating'} event:`, error);
+      alert(error.message || `There was an error ${editingEventId ? 'updating' : 'creating'} the event. Please try again.`);
     }
   };
-  
 
   return (
     <div className='dashboard'>
@@ -250,33 +360,30 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         <div className='main-content'>
           <h2>Welcome to the Manage</h2>
           <div className="sections-container">
-          <div className="current-section">
-  <h3>Upcoming Event</h3>
-  {activeEvents.length === 0 ? (
-    <p>No current events, auctions, or items.</p>
-  ) : (
-    activeEvents.map((event) => (
-      <div key={event.id} className="current-event">
-        <span 
-          className="delete-icon" 
-          onClick={() => handleDeleteEvent(event.id)} 
-          title="Delete Event"
-        >
-          🗑️
-        </span>
-        <h4>{event.name}</h4>
-        <p>{event.description}</p>
-        <p>Date: {event.date}</p>
-        <p>Start: {event.startTime} - Stop: {event.stopTime}</p>
-        <a href={event.link} target="_blank" rel="noopener noreferrer">{event.link}</a>
-        <button onClick={() => handleEditEvent(event.id)}>Edit Event</button>
-      </div>
-    ))
-  )}
-</div>
-
-
-
+            <div className="current-section">
+              <h3>Upcoming Event</h3>
+              {activeEvents.length === 0 ? (
+                <p>No current events, auctions, or items.</p>
+              ) : (
+                activeEvents.map((event) => (
+                  <div key={event.id} className="current-event">
+                    <span
+                      className="delete-icon"
+                      onClick={() => handleDeleteEvent(event.id)}
+                      title="Delete Event"
+                    >
+                      🗑️
+                    </span>
+                    <h4>{event.name}</h4>
+                    <p>{event.description}</p>
+                    <p>Date: {event.date}</p>
+                    <p>Start: {event.startTime} - Stop: {event.stopTime}</p>
+                    <a href={event.link} target="_blank" rel="noopener noreferrer">{event.link}</a>
+                    <button onClick={() => handleEditEvent(event.id)}>Edit Event</button>
+                  </div>
+                ))
+              )}
+            </div>
 
             <div className="create-section">
               <h3>Create</h3>
@@ -324,7 +431,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
               {showEventForm && (
                 <div className="event-form-container">
-                  <h3>Create Event</h3>
+                  <h3>{editingEventId ? 'Edit Event' : 'Create Event'}</h3>
                   <h4>Selected Candidate:</h4>
                   <table>
                     <thead>
@@ -332,6 +439,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                         {Object.keys(selectedData[0] || {}).map((key) => (
                           <th key={key}>{key}</th>
                         ))}
+                        <th>Image</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -340,36 +448,87 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                           {Object.values(data).map((value, i) => (
                             <td key={i}>{value}</td>
                           ))}
+                          <td>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handleImageUpload(index, e)}
+                              style={{ margin: '5px 0' }}
+                            />
+                            {candidateImages[index] && (
+                              <div>
+                                <img
+                                  src={candidateImages[index].dataUrl}
+                                  alt={`Candidate ${index}`}
+                                  style={{ maxWidth: '100px', margin: '5px 0' }}
+                                />
+                                <button
+                                  onClick={() => handleClearImage(index)}
+                                  style={{
+                                    background: '#ff4d4d',
+                                    color: 'white',
+                                    padding: '5px 10px',
+                                    border: 'none',
+                                    borderRadius: '5px',
+                                  }}
+                                >
+                                  Clear Image
+                                </button>
+                              </div>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
 
                   <form onSubmit={handleEventFormSubmit}>
-                    <label>Date: <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} /></label>
-                    <label>Start Time: <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} /></label>
-                    <label>Stop Time: <input type="time" value={stopTime} onChange={(e) => setStopTime(e.target.value)} /></label>
-                    <label>Event Name: <input type="text" value={eventName} onChange={(e) => setEventName(e.target.value)} /></label>
-                    <label>Description: <textarea value={eventDescription} onChange={(e) => setEventDescription(e.target.value)} /></label>
-                    <button type="submit">Create Event</button>
+                    <label htmlFor="eventDate">Event Date:</label>
+                    <input
+                      type="date"
+                      id="eventDate"
+                      value={eventDate}
+                      onChange={(e) => setEventDate(e.target.value)}
+                    />
+
+                    <label htmlFor="startTime">Start Time:</label>
+                    <input
+                      type="time"
+                      id="startTime"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                    />
+
+                    <label htmlFor="stopTime">Stop Time:</label>
+                    <input
+                      type="time"
+                      id="stopTime"
+                      value={stopTime}
+                      onChange={(e) => setStopTime(e.target.value)}
+                    />
+
+                    <label htmlFor="eventName">Event Name:</label>
+                    <input
+                      type="text"
+                      id="eventName"
+                      value={eventName}
+                      onChange={(e) => setEventName(e.target.value)}
+                    />
+
+                    <label htmlFor="eventDescription">Description:</label>
+                    <textarea
+                      id="eventDescription"
+                      value={eventDescription}
+                      onChange={(e) => setEventDescription(e.target.value)}
+                    />
+
+                    <button type="submit">{editingEventId ? 'Update Event' : 'Create Event'}</button>
                   </form>
 
                   {eventCreated && (
-                    <div className="event-success-message">
-                      <h4>✅ Event created successfully!</h4>
-                      <p>Share this temporary voting link:</p>
-                      <div className="copy-link-container">
-                        <input type="text" value={generatedLink} readOnly />
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(generatedLink);
-                            alert('Link copied to clipboard!');
-                            resetForm();
-                          }}
-                        >
-                          Copy Link
-                        </button>
-                      </div>
+                    <div className="event-success">
+                      <h4>Event {editingEventId ? 'Updated' : 'Created'} Successfully</h4>
+                      <p>Your event link: <a href={generatedLink} target="_blank" rel="noopener noreferrer">{generatedLink}</a></p>
                     </div>
                   )}
                 </div>

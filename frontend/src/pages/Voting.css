@@ -1,70 +1,44 @@
-/* Voting Page Styles */
 .voting-container {
-    padding: 20px;
-    background-color: #ffffff;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-    margin-top: 20px;
-    max-width: 900px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-  
-  .voting-container h2 {
-    font-size: 24px;
-    color: #2c3e50;
-    margin-bottom: 10px;
-  }
-  
-  .voting-container p {
-    color: #555;
-    margin: 5px 0;
-  }
-  
-  /* Participants Section */
-  .participant-list {
-    list-style: none;
-    padding: 0;
-    margin-top: 20px;
-  }
-  
-  .participant-list li {
-    padding: 15px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    background-color: #f9f9f9;
-    margin-bottom: 15px;
-    position: relative;
-  }
-  
-  .participant-list input[type="file"] {
-    margin-top: 10px;
-  }
-  
-  .participant-list img {
-    margin-top: 10px;
-    max-width: 120px;
-    height: auto;
-    border-radius: 6px;
-    border: 1px solid #ccc;
-  }
-  
-  /* Start Now Button */
-  .start-now-btn {
-    background-color: #007bff;
-    color: white;
-    padding: 12px 20px;
-    font-size: 16px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    margin-top: 20px;
-    display: block;
-    width: 100%;
-    max-width: 200px;
-  }
-  
-  .start-now-btn:hover {
-    background-color: #0056b3;
-  }
-  
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.voting-container h1 {
+  font-size: 2em;
+  margin-bottom: 20px;
+}
+
+.voting-container h2 {
+  font-size: 1.5em;
+  margin-top: 20px;
+  margin-bottom: 10px;
+}
+
+.voting-container p {
+  margin: 10px 0;
+}
+
+.voting-container table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.voting-container th,
+.voting-container td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+.voting-container th {
+  background-color: #f2f2f2;
+}
+
+.voting-container img {
+  max-width: 100px;
+  height: auto;
+  display: block;
+}
