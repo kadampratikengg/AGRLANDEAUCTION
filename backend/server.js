@@ -24,12 +24,13 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ extended: true }));
 
 // ===== File Storage Configuration =====
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadPath = './uploads';
+    const uploadPath = './Uploads';
     if (!fs.existsSync(uploadPath)) {
       fs.mkdirSync(uploadPath);
     }
@@ -47,7 +48,6 @@ const upload = multer({ storage });
 mongoose
   .connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
-OME
     useUnifiedTopology: true,
   })
   .then(() => console.log('✅ Connected to MongoDB'))
@@ -125,6 +125,26 @@ const Event = mongoose.model(
     ],
     expiry: { type: Number, required: true },
     link: { type: String, required: true },
+  })
+);
+
+const ExcelData = mongoose.model(
+  'ExcelData',
+  new mongoose.Schema({
+    eventId: { type: String, required: true },
+    fileData: { type: Array, required: true },
+    timestamp: { type: String, required: true },
+  }),
+  'exceldatas'
+);
+
+const Vote = mongoose.model(
+  'Vote',
+  new mongoose.Schema({
+    eventId: { type: String, required: true },
+    voterId: { type: String, required: true },
+    candidate: { type: String, required: true },
+    timestamp: { type: String, required: true },
   })
 );
 
@@ -267,6 +287,119 @@ app.post('/submit-order', async (req, res) => {
   }
 });
 
+// Store Excel Data
+app.post('/api/excel-data', async (req, res) => {
+  console.log('📥 Excel data submission received:', req.body);
+
+  const { eventId, fileData, timestamp } = req.body;
+
+  if (!eventId || !fileData || !timestamp) {
+    return res.status(400).json({ message: 'Missing required fields: eventId, fileData, timestamp' });
+  }
+
+  try {
+    const excelData = new ExcelData({
+      eventId,
+      fileData,
+      timestamp,
+    });
+
+    await excelData.save();
+    console.log('✅ Excel data saved successfully:', excelData);
+    res.status(201).json({ message: 'Excel data saved successfully' });
+  } catch (error) {
+    console.error('❌ Error saving Excel data:', error);
+    res.status(500).json({ message: 'Failed to save Excel data', error: error.message });
+  }
+});
+
+// Verify ID (Updated to check second column)
+app.post('/api/verify-id/:eventId', async (req, res) => {
+  console.log('📥 ID verification request for event:', req.params.eventId, 'ID:', req.body.id);
+
+  const { id } = req.body;
+  const eventId = req.params.eventId;
+
+  if (!id) {
+    return res.status(400).json({ message: 'ID is required' });
+  }
+
+  try {
+    const excelData = await ExcelData.findOne({ eventId });
+    console.log('🔍 ExcelData found:', excelData);
+    if (!excelData) {
+      return res.status(404).json({ message: 'No Excel data found for this event' });
+    }
+
+    // Find a row where the second column matches the provided ID
+    const rowData = excelData.fileData.find((row) => {
+      const values = Object.values(row);
+      return values.length >= 2 && (values[1] === id || String(values[1]) === String(id));
+    });
+
+    console.log('🔍 RowData found:', rowData);
+    if (!rowData) {
+      return res.status(200).json({ verified: false, message: 'ID not found in second column of Excel data' });
+    }
+
+    res.status(200).json({ verified: true, rowData });
+  } catch (error) {
+    console.error('❌ Error verifying ID:', error);
+    res.status(500).json({ message: 'Failed to verify ID', error: error.message });
+  }
+});
+
+// Submit Vote
+app.post('/api/vote/:eventId', async (req, res) => {
+  console.log('📥 Vote submission for event:', req.params.eventId, 'Data:', req.body);
+
+  const { voterId, candidate } = req.body;
+  const eventId = req.params.eventId;
+
+  if (!voterId || !candidate) {
+    return res.status(400).json({ message: 'Voter ID and candidate are required' });
+  }
+
+  try {
+    // Check if voter has already voted
+    const existingVote = await Vote.findOne({ eventId, voterId });
+    if (existingVote) {
+      return res.status(400).json({ message: 'This ID has already voted' });
+    }
+
+    const vote = new Vote({
+      eventId,
+      voterId,
+      candidate,
+      timestamp: new Date().toISOString(),
+    });
+
+    await vote.save();
+    console.log('✅ Vote saved successfully:', vote);
+    res.status(201).json({ message: 'Vote submitted successfully' });
+  } catch (error) {
+    console.error('❌ Error saving vote:', error);
+    res.status(500).json({ message: 'Failed to submit vote', error: error.message });
+  }
+});
+
+// Get Event
+app.get('/api/events/:id', async (req, res) => {
+  console.log('📥 Event fetch request for ID:', req.params.id);
+
+  try {
+    const event = await Event.findOne({ id: req.params.id });
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    res.status(200).json(event);
+  } catch (error) {
+    console.error('❌ Error fetching event:', error);
+    res.status(500).json({ message: 'Failed to fetch event', error: error.message });
+  }
+});
+
 // Create Event
 app.post('/api/events', upload.array('images', 10), async (req, res) => {
   console.log('📥 Event submission received:', req.body, req.files);
@@ -284,7 +417,6 @@ app.post('/api/events', upload.array('images', 10), async (req, res) => {
     link,
   } = req.body;
 
-  // Validate required fields
   const missingFields = [];
   if (!id) missingFields.push('id');
   if (!date) missingFields.push('date');
@@ -304,12 +436,10 @@ app.post('/api/events', upload.array('images', 10), async (req, res) => {
     const parsedSelectedData = JSON.parse(selectedData);
     const parsedCandidateImages = candidateImages ? JSON.parse(candidateImages) : [];
 
-    // Validate selectedData
     if (!Array.isArray(parsedSelectedData) || parsedSelectedData.length === 0) {
       return res.status(400).json({ message: 'selectedData must be a non-empty array' });
     }
 
-    // Map uploaded images to their paths
     const imagePaths = req.files.map((file, index) => ({
       candidateIndex: parsedCandidateImages[index]?.candidateIndex ?? index,
       imagePath: file.path,
@@ -358,7 +488,6 @@ app.put('/api/events/:id', upload.array('images', 10), async (req, res) => {
     link,
   } = req.body;
 
-  // Validate required fields
   const missingFields = [];
   if (!date) missingFields.push('date');
   if (!startTime) missingFields.push('startTime');
@@ -377,16 +506,23 @@ app.put('/api/events/:id', upload.array('images', 10), async (req, res) => {
     const parsedSelectedData = JSON.parse(selectedData);
     const parsedCandidateImages = candidateImages ? JSON.parse(candidateImages) : [];
 
-    // Validate selectedData
     if (!Array.isArray(parsedSelectedData) || parsedSelectedData.length === 0) {
       return res.status(400).json({ message: 'selectedData must be a non-empty array' });
     }
 
-    // Map uploaded images to their paths
     const imagePaths = req.files.map((file, index) => ({
       candidateIndex: parsedCandidateImages[index]?.candidateIndex ?? index,
       imagePath: file.path,
     }));
+
+    const existingEvent = await Event.findOne({ id: req.params.id });
+    if (existingEvent && existingEvent.candidateImages) {
+      existingEvent.candidateImages.forEach((image) => {
+        if (image.imagePath && fs.existsSync(image.imagePath)) {
+          fs.unlinkSync(image.imagePath);
+        }
+      });
+    }
 
     const event = await Event.findOneAndUpdate(
       { id: req.params.id },
@@ -427,7 +563,6 @@ app.delete('/api/events/:id', async (req, res) => {
       return res.status(404).json({ message: 'Event not found' });
     }
 
-    // Delete stored images
     event.candidateImages.forEach((image) => {
       if (image.imagePath && fs.existsSync(image.imagePath)) {
         fs.unlinkSync(image.imagePath);

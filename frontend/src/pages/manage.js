@@ -31,6 +31,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const [activeEvents, setActiveEvents] = useState([]);
   const [editingEventId, setEditingEventId] = useState(null);
   const [candidateImages, setCandidateImages] = useState({});
+  const [eventId, setEventId] = useState(null);
   const navigate = useNavigate();
 
   // Reset form after successful event creation or update
@@ -50,6 +51,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     setEventCreated(false);
     setEditingEventId(null);
     setCandidateImages({});
+    setEventId(null);
   };
 
   // Resize image to approximately 5KB
@@ -162,6 +164,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     setShowEventForm(true);
     setIsCreateEventClicked(true);
     setEditingEventId(eventId);
+    setEventId(eventId);
     setCandidateImages(eventToEdit.candidateImages || {});
   };
 
@@ -218,12 +221,42 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
   const handleCreateEvent = () => {
     setIsCreateEventClicked(true);
+    setEventId(uuidv4());
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     const selectedRows = checkedRows.map((index) => fileData[index]);
     setSelectedData(selectedRows);
-    setShowEventForm(true);
+
+    if (!editingEventId && !eventId) {
+      alert('Event ID is missing. Please try again.');
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:5000/api/excel-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          eventId: editingEventId || eventId,
+          fileData,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to store Excel data');
+      }
+
+      console.log('Excel data stored successfully');
+      setShowEventForm(true);
+    } catch (error) {
+      console.error('Error storing Excel data:', error);
+      alert('Failed to store Excel data: ' + error.message);
+    }
   };
 
   const handleDeleteEvent = async (id) => {
@@ -251,11 +284,21 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const handleEventFormSubmit = async (e) => {
     e.preventDefault();
 
+    if (!editingEventId && !eventId) {
+      alert('Event ID is missing. Please try again.');
+      return;
+    }
+
     const expiryTime = new Date().getTime() + 60 * 60 * 1000;
-    const eventId = editingEventId || uuidv4();
+    const currentEventId = editingEventId || eventId;
+
+    const serializedCandidateImages = Object.keys(candidateImages).reduce((acc, index) => {
+      acc[index] = { dataUrl: candidateImages[index].dataUrl };
+      return acc;
+    }, {});
 
     const eventDetails = {
-      id: eventId,
+      id: currentEventId,
       date: eventDate,
       startTime,
       stopTime,
@@ -263,9 +306,27 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       description: eventDescription,
       selectedData,
       expiry: expiryTime,
-      link: `${window.location.origin}/voting/${eventId}`,
-      candidateImages,
+      link: `${window.location.origin}/voting/${currentEventId}`,
+      candidateImages: serializedCandidateImages,
     };
+
+    const formData = new FormData();
+    formData.append('id', currentEventId);
+    formData.append('date', eventDate);
+    formData.append('startTime', startTime);
+    formData.append('stopTime', stopTime);
+    formData.append('name', eventName);
+    formData.append('description', eventDescription);
+    formData.append('selectedData', JSON.stringify(selectedData));
+    formData.append('expiry', expiryTime);
+    formData.append('link', `${window.location.origin}/voting/${currentEventId}`);
+    formData.append('candidateImages', JSON.stringify(serializedCandidateImages));
+
+    Object.values(candidateImages).forEach((image, index) => {
+      if (image.file) {
+        formData.append('images', image.file);
+      }
+    });
 
     try {
       const isEditing = !!editingEventId;
@@ -276,23 +337,21 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
       const response = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(eventDetails),
+        body: formData,
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Failed to ${isEditing ? 'update' : 'create'} event`);
+        const errorText = await response.text();
+        console.error('Server response:', errorText);
+        throw new Error(`Failed to ${isEditing ? 'update' : 'create'} event: ${errorText}`);
       }
 
       const result = await response.json();
 
-      localStorage.setItem(`event-${eventId}`, JSON.stringify(eventDetails));
+      localStorage.setItem(`event-${currentEventId}`, JSON.stringify(eventDetails));
       if (isEditing) {
         setActiveEvents((prev) =>
-          prev.map((event) => (event.id === eventId ? eventDetails : event))
+          prev.map((event) => (event.id === currentEventId ? eventDetails : event))
         );
       } else {
         setActiveEvents((prev) => [...prev, eventDetails]);
