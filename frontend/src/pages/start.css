@@ -4,7 +4,6 @@
     padding: 20px;
     font-family: Arial, sans-serif;
   }
- 
   
   h3 {
     margin-top: 20px;
@@ -25,7 +24,6 @@
   }
   
   .verify-button,
-  .submit-vote-button,
   .back-button {
     padding: 10px 20px;
     background-color: #007bff;
@@ -36,14 +34,8 @@
   }
   
   .verify-button:hover,
-  .submit-vote-button:hover,
   .back-button:hover {
     background-color: #0056b3;
-  }
-  
-  .submit-vote-button:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
   }
   
   .error-message {
@@ -96,10 +88,29 @@
     border: 1px solid #ddd;
     border-radius: 5px;
     background-color: #f9f9f9;
+    cursor: pointer;
+    transition: background-color 0.3s;
   }
   
-  .candidate-card input[type="radio"] {
-    margin-right: 15px;
+  .candidate-card:hover {
+    background-color: #e0e0e0;
+  }
+  
+  .candidate-card.selected {
+    background-color: #d0e7ff;
+    border-color: #007bff;
+  }
+  
+  .candidate-card.highlighted {
+    background-color: #006400; /* Dark green */
+    color: white;
+    border-color: #004d00;
+    cursor: not-allowed; /* Prevent further clicks */
+  }
+  
+  .candidate-card.highlighted p,
+  .candidate-card.highlighted strong {
+    color: white; /* Ensure text is readable on dark green */
   }
   
   .candidate-details {
@@ -114,4 +125,10 @@
   
   .candidate-details p {
     margin: 5px 0;
+  }
+
+  .error-message {
+    color: red;
+    font-weight: bold;
+    margin-top: 10px;
   }

@@ -129,43 +129,54 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     });
   };
 
-  // Periodically clean up expired events and update active events
+  // Fetch active events from backend
   useEffect(() => {
-    const interval = setInterval(() => {
-      const events = [];
-      const currentTime = new Date().getTime();
-
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key.startsWith('event-')) {
-          const event = JSON.parse(localStorage.getItem(key));
-          if (event.expiry > currentTime) {
-            events.push(event);
-          } else {
-            localStorage.removeItem(key);
-          }
-        }
+    const fetchActiveEvents = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/events');
+        if (!response.ok) throw new Error('Failed to fetch events');
+        const events = await response.json();
+        setActiveEvents(events.filter(event => {
+          const eventEnd = new Date(`${event.date}T${event.stopTime}`);
+          return eventEnd.getTime() > Date.now();
+        }));
+      } catch (error) {
+        console.error('Error fetching events:', error);
       }
+    };
 
-      setActiveEvents(events);
-    }, 60000);
-
+    fetchActiveEvents();
+    const interval = setInterval(fetchActiveEvents, 60000);
     return () => clearInterval(interval);
   }, []);
 
-  const handleEditEvent = (eventId) => {
-    const eventToEdit = activeEvents.find((e) => e.id === eventId);
-    setEventDate(eventToEdit.date);
-    setStartTime(eventToEdit.startTime);
-    setStopTime(eventToEdit.stopTime);
-    setEventName(eventToEdit.name);
-    setEventDescription(eventToEdit.description);
-    setSelectedData(eventToEdit.selectedData);
-    setShowEventForm(true);
-    setIsCreateEventClicked(true);
-    setEditingEventId(eventId);
-    setEventId(eventId);
-    setCandidateImages(eventToEdit.candidateImages || {});
+  const handleEditEvent = async (eventId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/events/${eventId}`);
+      if (!response.ok) throw new Error('Failed to fetch event');
+      const eventToEdit = await response.json();
+      
+      setEventDate(eventToEdit.date);
+      setStartTime(eventToEdit.startTime);
+      setStopTime(eventToEdit.stopTime);
+      setEventName(eventToEdit.name);
+      setEventDescription(eventToEdit.description);
+      setSelectedData(eventToEdit.selectedData);
+      setShowEventForm(true);
+      setIsCreateEventClicked(true);
+      setEditingEventId(eventId);
+      setEventId(eventId);
+      
+      // Set existing candidate images
+      const images = {};
+      eventToEdit.candidateImages.forEach((img, index) => {
+        images[index] = { dataUrl: `/uploads/${img.imagePath.split('/').pop()}` };
+      });
+      setCandidateImages(images);
+    } catch (error) {
+      console.error('Error fetching event for edit:', error);
+      alert('Failed to load event for editing');
+    }
   };
 
   const toggleDropdown = () => {
@@ -273,7 +284,6 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         throw new Error(errorData.message || 'Failed to delete event');
       }
 
-      localStorage.removeItem(`event-${id}`);
       setActiveEvents((prevEvents) => prevEvents.filter((event) => event.id !== id));
     } catch (error) {
       console.error('Error deleting event:', error);
@@ -289,26 +299,15 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       return;
     }
 
-    const expiryTime = new Date().getTime() + 60 * 60 * 1000;
+    // Calculate expiry based on event date and stop time
+    const expiryTime = new Date(`${eventDate}T${stopTime}`).getTime();
     const currentEventId = editingEventId || eventId;
 
-    const serializedCandidateImages = Object.keys(candidateImages).reduce((acc, index) => {
-      acc[index] = { dataUrl: candidateImages[index].dataUrl };
-      return acc;
-    }, {});
-
-    const eventDetails = {
-      id: currentEventId,
-      date: eventDate,
-      startTime,
-      stopTime,
-      name: eventName,
-      description: eventDescription,
-      selectedData,
-      expiry: expiryTime,
-      link: `${window.location.origin}/voting/${currentEventId}`,
-      candidateImages: serializedCandidateImages,
-    };
+    // Prepare candidate images array with index mapping
+    const serializedCandidateImages = Object.keys(candidateImages).map((index) => ({
+      candidateIndex: parseInt(index),
+      imagePath: candidateImages[index].dataUrl || '',
+    }));
 
     const formData = new FormData();
     formData.append('id', currentEventId);
@@ -322,6 +321,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     formData.append('link', `${window.location.origin}/voting/${currentEventId}`);
     formData.append('candidateImages', JSON.stringify(serializedCandidateImages));
 
+    // Append actual image files
     Object.values(candidateImages).forEach((image, index) => {
       if (image.file) {
         formData.append('images', image.file);
@@ -348,14 +348,26 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
       const result = await response.json();
 
-      localStorage.setItem(`event-${currentEventId}`, JSON.stringify(eventDetails));
-      if (isEditing) {
-        setActiveEvents((prev) =>
-          prev.map((event) => (event.id === currentEventId ? eventDetails : event))
-        );
-      } else {
-        setActiveEvents((prev) => [...prev, eventDetails]);
-      }
+      const eventDetails = {
+        id: currentEventId,
+        date: eventDate,
+        startTime,
+        stopTime,
+        name: eventName,
+        description: eventDescription,
+        selectedData,
+        expiry: expiryTime,
+        link: result.link || `${window.location.origin}/voting/${currentEventId}`,
+        candidateImages: serializedCandidateImages,
+      };
+
+      setActiveEvents((prev) => {
+        if (isEditing) {
+          return prev.map((event) => (event.id === currentEventId ? eventDetails : event));
+        }
+        return [...prev, eventDetails];
+      });
+      
       setGeneratedLink(result.link || eventDetails.link);
       setEventCreated(true);
       resetForm();
@@ -548,6 +560,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                       id="eventDate"
                       value={eventDate}
                       onChange={(e) => setEventDate(e.target.value)}
+                      required
                     />
 
                     <label htmlFor="startTime">Start Time:</label>
@@ -556,6 +569,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                       id="startTime"
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
+                      required
                     />
 
                     <label htmlFor="stopTime">Stop Time:</label>
@@ -564,6 +578,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                       id="stopTime"
                       value={stopTime}
                       onChange={(e) => setStopTime(e.target.value)}
+                      required
                     />
 
                     <label htmlFor="eventName">Event Name:</label>
@@ -572,6 +587,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                       id="eventName"
                       value={eventName}
                       onChange={(e) => setEventName(e.target.value)}
+                      required
                     />
 
                     <label htmlFor="eventDescription">Description:</label>
@@ -579,6 +595,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                       id="eventDescription"
                       value={eventDescription}
                       onChange={(e) => setEventDescription(e.target.value)}
+                      required
                     />
 
                     <button type="submit">{editingEventId ? 'Update Event' : 'Create Event'}</button>
