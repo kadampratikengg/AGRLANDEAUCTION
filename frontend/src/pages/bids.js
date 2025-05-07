@@ -94,13 +94,19 @@ const Dashboard = ({ setIsAuthenticated }) => {
     };
   
     try {
-      const res = await fetch('http://localhost:5000/submit-contact', {
+      const apiBaseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      console.log('Submitting contact form to:', `${apiBaseUrl}/submit-contact`); // Debug log
+      const res = await fetch(`${apiBaseUrl}/submit-contact`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(data)
       });
+  
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
   
       const result = await res.json();
       alert(result.message);
@@ -127,17 +133,22 @@ const Dashboard = ({ setIsAuthenticated }) => {
       taluka: selectedTaluka,
       pincode,
       items: orderItems
-      
     };
   
     try {
-      const res = await fetch('http://localhost:5000/submit-order', {
+      const apiBaseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      console.log('Submitting order form to:', `${apiBaseUrl}/submit-order`); // Debug log
+      const res = await fetch(`${apiBaseUrl}/submit-order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(data)
       });
+  
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
   
       const result = await res.json();
       alert(result.message);
@@ -168,7 +179,7 @@ const Dashboard = ({ setIsAuthenticated }) => {
     setOwnerName('');
     setContactNumber('');
     setEmail('');
-    setOrderItems([]); // clears quantity input table
+    setOrderItems([]);
     setSelectedState('');
     setSelectedDistrict('');
     setSelectedTaluka('');
@@ -232,7 +243,6 @@ const Dashboard = ({ setIsAuthenticated }) => {
         <div className='main-content'>
           <h2>Welcome to the Bids</h2>
           <div className='sections-container'>
-            {/* Contact Form */}
             <div className='current-section'>
               <h3>Contact Section</h3>
               <button className='create-event-btn' onClick={() => {
@@ -300,7 +310,6 @@ const Dashboard = ({ setIsAuthenticated }) => {
               )}
             </div>
 
-            {/* Order Form */}
             <div className='create-section'>
               <h3>Order Section</h3>
               <button className='create-event-btn' onClick={() => {
@@ -326,69 +335,65 @@ const Dashboard = ({ setIsAuthenticated }) => {
                       
                       <label>Quantity</label>
                       <table>
-  <thead>
-    <tr>
-      <th>Weight</th>
-      <th>Quantity</th>
-    </tr>
-  </thead>
-  <tbody>
-    {[
-      "100g",
-      "200g",
-      "250g",
-      "500g",
-      "1kg",
-      "5kg",
-      "10kg"
-    ].map((weightOption) => (
-      <tr key={weightOption}>
-        <td>{weightOption}</td>
-        <td>
-          <input
-            type="number"
-            min="0"
-            value={orderItems.find(item => item.weight === weightOption)?.quantity || 0}
-            onChange={(e) => {
-              const quantity = parseInt(e.target.value, 10);
-              if (!isNaN(quantity)) {
-                const updatedItems = [...orderItems];
-                const existingItemIndex = updatedItems.findIndex(item => item.weight === weightOption);
-                if (existingItemIndex >= 0) {
-                  if (quantity === 0) {
-                    updatedItems.splice(existingItemIndex, 1); // Remove if quantity is 0
-                  } else {
-                    updatedItems[existingItemIndex].quantity = quantity;
-                  }
-                } else if (quantity > 0) {
-                  updatedItems.push({ weight: weightOption, quantity });
-                }
-                setOrderItems(updatedItems);
-              }
-            }}
-          />
-        </td>
-      </tr>
-    ))}
-  </tbody>
-</table>
+                        <thead>
+                          <tr>
+                            <th>Weight</th>
+                            <th>Quantity</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[
+                            "100g",
+                            "200g",
+                            "250g",
+                            "500g",
+                            "1kg",
+                            "5kg",
+                            "10kg"
+                          ].map((weightOption) => (
+                            <tr key={weightOption}>
+                              <td>{weightOption}</td>
+                              <td>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={orderItems.find(item => item.weight === weightOption)?.quantity || 0}
+                                  onChange={(e) => {
+                                    const quantity = parseInt(e.target.value, 10);
+                                    if (!isNaN(quantity)) {
+                                      const updatedItems = [...orderItems];
+                                      const existingItemIndex = updatedItems.findIndex(item => item.weight === weightOption);
+                                      if (existingItemIndex >= 0) {
+                                        if (quantity === 0) {
+                                          updatedItems.splice(existingItemIndex, 1);
+                                        } else {
+                                          updatedItems[existingItemIndex].quantity = quantity;
+                                        }
+                                      } else if (quantity > 0) {
+                                        updatedItems.push({ weight: weightOption, quantity });
+                                      }
+                                      setOrderItems(updatedItems);
+                                    }
+                                  }}
+                                />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
 
-{orderItems.length > 0 && (
-  <div className="order-summary" style={{ marginTop: '20px' }}>
-    <h4>Selected Items</h4>
-    <ul>
-      {orderItems.map((item, index) => (
-        <li key={index}>
-          {item.quantity} × {item.weight}
-        </li>
-      ))}
-    </ul>
-  </div>
-)}
-
-
-
-
+                      {orderItems.length > 0 && (
+                        <div className="order-summary" style={{ marginTop: '20px' }}>
+                          <h4>Selected Items</h4>
+                          <ul>
+                            {orderItems.map((item, index) => (
+                              <li key={index}>
+                                {item.quantity} × {item.weight}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
 
                       <label>Address</label>
                       <input type='text' value={addressline1} onChange={(e) => setAddressLine1(e.target.value)} required />
