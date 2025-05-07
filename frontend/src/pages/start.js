@@ -13,8 +13,8 @@ const Start = () => {
   const [showVoterDetails, setShowVoterDetails] = useState(true);
   const [highlightedCandidate, setHighlightedCandidate] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showVotePopup, setShowVotePopup] = useState(false);
 
-  // Fetch event data to get selected candidates
   const fetchEventData = async () => {
     try {
       const response = await fetch(`http://localhost:5000/api/events/${eventId}`);
@@ -28,7 +28,6 @@ const Start = () => {
     }
   };
 
-  // Handle ID verification
   const handleVerifyId = async () => {
     setError('');
     setVerificationResult(null);
@@ -37,6 +36,7 @@ const Start = () => {
     setHighlightedCandidate(null);
     setIsSubmitting(false);
     setShowVoterDetails(true);
+    setShowVotePopup(false);
 
     try {
       const response = await fetch(`http://localhost:5000/api/verify-id/${eventId}`, {
@@ -57,19 +57,14 @@ const Start = () => {
 
       if (result.verified) {
         if (result.hasVoted) {
-          // Voter has already voted
           setError('You have already voted for this event.');
           setTimeout(() => {
             setError('');
             setIdInput('');
             setVerificationResult(null);
-          }, 3000); // Reset after 3 seconds
+          }, 3000);
         } else {
-          // Voter hasn't voted, proceed to fetch event data and show candidates
           await fetchEventData();
-          setTimeout(() => {
-            setShowVoterDetails(false);
-          }, 10000);
         }
       }
     } catch (err) {
@@ -77,7 +72,6 @@ const Start = () => {
     }
   };
 
-  // Handle candidate selection and vote submission
   const handleCandidateSelect = async (candidateName, index) => {
     if (isSubmitting || voteSubmitted) return;
 
@@ -85,56 +79,64 @@ const Start = () => {
     setSelectedCandidate(candidateName);
     setHighlightedCandidate(index);
 
-    // Play beep sound
     const beep = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
+
+    const handleVoteSubmission = async () => {
+      try {
+        const response = await fetch(`http://localhost:5000/api/vote/${eventId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            voterId: idInput,
+            candidate: candidateName,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to submit vote');
+        }
+
+        setVoteSubmitted(true);
+        setError('');
+
+        // Reset back to ID verification view
+        setTimeout(() => {
+          setIdInput('');
+          setVerificationResult(null);
+          setVoteSubmitted(false);
+          setSelectedCandidate('');
+          setHighlightedCandidate(null);
+          setShowVoterDetails(true);
+          setShowVotePopup(false);
+          setIsSubmitting(false);
+        }, 1000);
+      } catch (err) {
+        setError(err.message);
+        setIsSubmitting(false);
+        setHighlightedCandidate(null);
+      }
+    };
+
     try {
-      await beep.play();
+      beep.play();
+      beep.onended = handleVoteSubmission;
     } catch (err) {
       console.error('Error playing beep:', err);
+      await handleVoteSubmission();
     }
+  };
 
-    // Submit vote
-    try {
-      const response = await fetch(`http://localhost:5000/api/vote/${eventId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          voterId: idInput,
-          candidate: candidateName,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to submit vote');
-      }
-
-      setVoteSubmitted(true);
-      setError('');
-
-      // Show success message for 3 seconds, then reset to Verify ID
-      setTimeout(() => {
-        setIdInput('');
-        setVerificationResult(null);
-        setVoteSubmitted(false);
-        setSelectedCandidate('');
-        setHighlightedCandidate(null);
-        setShowVoterDetails(true);
-        setIsSubmitting(false);
-      }, 3000);
-    } catch (err) {
-      setError(err.message);
-      setIsSubmitting(false);
-      setHighlightedCandidate(null);
-    }
+  const handleGoForVote = () => {
+    setShowVoterDetails(false);
+    setShowVotePopup(true);
   };
 
   return (
     <div className="voting-start-container">
       {showVoterDetails && (
         <>
-          <h1>Started!</h1>
           <div className="id-verification">
             <h3>Verify Your ID</h3>
             <input
@@ -173,6 +175,11 @@ const Start = () => {
                       </tr>
                     </tbody>
                   </table>
+                  {verificationResult.verified && !verificationResult.hasVoted && (
+                    <button onClick={handleGoForVote} className="go-vote-button">
+                      Go for Vote
+                    </button>
+                  )}
                 </div>
               ) : (
                 <p>No matching ID found in the Excel data.</p>
@@ -182,38 +189,40 @@ const Start = () => {
         </>
       )}
 
-      {verificationResult?.verified && eventData?.selectedData && !showVoterDetails && (
-        <div className="voting-section">
-          <h3>Select a Candidate to Vote</h3>
-          <div className="candidates-list">
-            {eventData.selectedData.map((candidate, index) => (
-              <div
-                key={index}
-                className={`candidate-card ${
-                  selectedCandidate === (candidate.Name || `Candidate ${index + 1}`)
-                    ? 'selected'
-                    : ''
-                } ${highlightedCandidate === index ? 'highlighted' : ''}`}
-                onClick={() => handleCandidateSelect(candidate.Name || `Candidate ${index + 1}`, index)}
-              >
-                <div className="candidate-details">
-                  {eventData.candidateImages && eventData.candidateImages[index] ? (
-                    <img
-                      src={`/uploads/${eventData.candidateImages[index].imagePath.split('/').pop()}`}
-                      alt={`Candidate ${index + 1}`}
-                      className="candidate-image"
-                    />
-                  ) : (
-                    <p>No image</p>
-                  )}
-                  {Object.entries(candidate).map(([key, value]) => (
-                    <p key={key}>
-                      <strong>{key}:</strong> {value}
-                    </p>
-                  ))}
+      {showVotePopup && verificationResult?.verified && eventData?.selectedData && (
+        <div className="vote-popup">
+          <div className="vote-popup-content">
+            <h3>Select a Candidate to Vote</h3>
+            <div className="candidates-list-horizontal">
+              {eventData.selectedData.slice(0, 5).map((candidate, index) => (
+                <div
+                  key={index}
+                  className={`candidate-card-horizontal ${
+                    selectedCandidate === (candidate.Name || `Candidate ${index + 1}`) ? 'selected' : ''
+                  } ${highlightedCandidate === index ? 'highlighted' : ''}`}
+                  onClick={() =>
+                    handleCandidateSelect(candidate.Name || `Candidate ${index + 1}`, index)
+                  }
+                >
+                  <div className="candidate-details">
+                    {eventData.candidateImages && eventData.candidateImages[index] ? (
+                      <img
+                        src={`/uploads/${eventData.candidateImages[index].imagePath.split('/').pop()}`}
+                        alt={`Candidate ${index + 1}`}
+                        className="candidate-image-large"
+                      />
+                    ) : (
+                      <p>No image</p>
+                    )}
+                    {Object.entries(candidate).map(([key, value]) => (
+                      <p key={key}>
+                        <strong>{key}:</strong> {value}
+                      </p>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}
