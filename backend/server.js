@@ -1,4 +1,5 @@
 require('dotenv').config();
+console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'Defined' : 'Undefined');
 
 const express = require('express');
 const mongoose = require('mongoose');
@@ -14,6 +15,12 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// ===== Ensure Uploads Directory Exists =====
+const uploadPath = './Uploads';
+if (!fs.existsSync(uploadPath)) {
+  fs.mkdirSync(uploadPath);
+}
+
 // ===== Middleware =====
 const corsOptions = {
   origin: ['http://localhost:3000', 'http://15.206.28.128'],
@@ -25,24 +32,43 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 app.use(bodyParser.json({ limit: '50mb' }));
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({ message: 'Invalid JSON payload' });
+  }
+  next();
+});
 
 // ===== File Storage Configuration =====
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadPath = './Uploads';
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath);
-    }
     cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
+    if (!file || !file.originalname) {
+      return cb(new Error('No file or invalid file name provided'), null);
+    }
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     cb(null, uniqueSuffix + path.extname(file.originalname));
   },
 });
 
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
+    if (!file) {
+      return cb(null, false);
+    }
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'), false);
+    }
+  },
+});
 
 // ===== MongoDB Connection =====
 mongoose
@@ -117,6 +143,7 @@ const Event = mongoose.model(
         required: true,
       },
     ],
+    fileData: { type: Array, required: false }, // Added to store Excel data
     candidateImages: [
       {
         candidateIndex: Number,
@@ -126,16 +153,6 @@ const Event = mongoose.model(
     expiry: { type: Number, required: true },
     link: { type: String, required: true },
   })
-);
-
-const ExcelData = mongoose.model(
-  'ExcelData',
-  new mongoose.Schema({
-    eventId: { type: String, required: true },
-    fileData: { type: Array, required: true },
-    timestamp: { type: String, required: true },
-  }),
-  'exceldatas'
 );
 
 const Vote = mongoose.model(
@@ -161,7 +178,20 @@ const transporter = nodemailer.createTransport({
 
 // Health check
 app.get('/', (req, res) => {
-  res.send('✅ Backend is running');
+  res.status(200).json({ message: '✅ Backend is running' });
+});
+
+// Fetch all active events
+app.get('/api/events', async (req, res) => {
+  console.log('📥 Fetching all active events');
+  try {
+    const currentTime = Date.now();
+    const events = await Event.find({ expiry: { $gt: currentTime } });
+    res.status(200).json(events);
+  } catch (error) {
+    console.error('❌ Error fetching events:', error);
+    res.status(500).json({ message: 'Failed to fetch events', error: error.message });
+  }
 });
 
 // Create Account
@@ -184,7 +214,7 @@ app.post('/create-account', async (req, res) => {
 
     res.status(201).json({ message: 'Account created successfully' });
   } catch (error) {
-    console.error(error);
+    console.error('❌ Error creating account:', error);
     res.status(500).json({ message: 'Server error during account creation' });
   }
 });
@@ -194,19 +224,39 @@ app.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
   try {
+    console.log('📥 Login attempt for email:', email);
+
+    if (!email || !password) {
+      console.log('❌ Missing email or password');
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+
     const user = await User.findOne({ email });
-    if (!user || !(await bcrypt.compare(password, user.password))) {
+    if (!user) {
+      console.log('❌ User not found for email:', email);
       return res.status(400).json({ message: 'Invalid email or password' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      console.log('❌ Password mismatch for email:', email);
+      return res.status(400).json({ message: 'Invalid email or password' });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      console.error('❌ JWT_SECRET is not defined in environment variables');
+      return res.status(500).json({ message: 'Server configuration error: JWT_SECRET is not set' });
     }
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
       expiresIn: '2h',
     });
 
+    console.log('✅ Login successful for email:', email);
     res.status(200).json({ message: 'Login successful', token });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Login failed' });
+    console.error('❌ Login error:', error.stack);
+    res.status(500).json({ message: 'Login failed', error: error.message });
   }
 });
 
@@ -234,7 +284,7 @@ app.post('/forgot-password', async (req, res) => {
     await transporter.sendMail(mailOptions);
     res.status(200).json({ message: 'Password reset link sent to your email.' });
   } catch (err) {
-    console.error(err);
+    console.error('❌ Error sending password reset email:', err);
     res.status(500).json({ message: 'Error sending email.' });
   }
 });
@@ -254,7 +304,7 @@ app.post('/reset-password', async (req, res) => {
 
     res.status(200).json({ message: 'Password reset successful' });
   } catch (err) {
-    console.error(err);
+    console.error('❌ Error resetting password:', err);
     res.status(400).json({ message: 'Invalid or expired reset token' });
   }
 });
@@ -287,7 +337,7 @@ app.post('/submit-order', async (req, res) => {
   }
 });
 
-// Store Excel Data
+// Store Excel Data in Event
 app.post('/api/excel-data', async (req, res) => {
   console.log('📥 Excel data submission received:', req.body);
 
@@ -298,14 +348,17 @@ app.post('/api/excel-data', async (req, res) => {
   }
 
   try {
-    const excelData = new ExcelData({
-      eventId,
-      fileData,
-      timestamp,
-    });
+    const event = await Event.findOneAndUpdate(
+      { id: eventId },
+      { $set: { fileData, timestamp } },
+      { new: true }
+    );
 
-    await excelData.save();
-    console.log('✅ Excel data saved successfully:', excelData);
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    console.log('✅ Excel data saved to event:', event);
     res.status(201).json({ message: 'Excel data saved successfully' });
   } catch (error) {
     console.error('❌ Error saving Excel data:', error);
@@ -313,7 +366,7 @@ app.post('/api/excel-data', async (req, res) => {
   }
 });
 
-// Verify ID (Updated to check second column)
+// Verify ID
 app.post('/api/verify-id/:eventId', async (req, res) => {
   console.log('📥 ID verification request for event:', req.params.eventId, 'ID:', req.body.id);
 
@@ -325,21 +378,20 @@ app.post('/api/verify-id/:eventId', async (req, res) => {
   }
 
   try {
-    const excelData = await ExcelData.findOne({ eventId });
-    console.log('🔍 ExcelData found:', excelData);
-    if (!excelData) {
+    const event = await Event.findOne({ id: eventId });
+    console.log('🔍 Event found:', event);
+    if (!event || !event.fileData) {
       return res.status(404).json({ message: 'No Excel data found for this event' });
     }
 
-    // Find a row where the second column matches the provided ID
-    const rowData = excelData.fileData.find((row) => {
+    const rowData = event.fileData.find((row) => {
       const values = Object.values(row);
       return values.length >= 2 && (values[1] === id || String(values[1]) === String(id));
     });
 
     console.log('🔍 RowData found:', rowData);
     if (!rowData) {
-      return res.status(200).json({ verified: false, message: 'ID not found in second column of Excel data' });
+      return res.status(200).json({ message: 'ID not found in second column of Excel data', verified: false });
     }
 
     res.status(200).json({ verified: true, rowData });
@@ -361,7 +413,6 @@ app.post('/api/vote/:eventId', async (req, res) => {
   }
 
   try {
-    // Check if voter has already voted
     const existingVote = await Vote.findOne({ eventId, voterId });
     if (existingVote) {
       return res.status(400).json({ message: 'This ID has already voted' });
@@ -402,7 +453,10 @@ app.get('/api/events/:id', async (req, res) => {
 
 // Create Event
 app.post('/api/events', upload.array('images', 10), async (req, res) => {
-  console.log('📥 Event submission received:', req.body, req.files);
+  console.log('📥 Event submission received:', {
+    body: req.body,
+    files: req.files ? req.files.map(file => ({ originalname: file.originalname, path: file.path })) : [],
+  });
 
   const {
     id,
@@ -415,6 +469,7 @@ app.post('/api/events', upload.array('images', 10), async (req, res) => {
     candidateImages,
     expiry,
     link,
+    fileData, // Include fileData
   } = req.body;
 
   const missingFields = [];
@@ -429,21 +484,32 @@ app.post('/api/events', upload.array('images', 10), async (req, res) => {
   if (!link) missingFields.push('link');
 
   if (missingFields.length > 0) {
+    console.error('❌ Missing fields:', missingFields);
     return res.status(400).json({ message: `Missing required fields: ${missingFields.join(', ')}` });
   }
 
   try {
-    const parsedSelectedData = JSON.parse(selectedData);
-    const parsedCandidateImages = candidateImages ? JSON.parse(candidateImages) : [];
+    let parsedSelectedData, parsedCandidateImages, parsedFileData;
+    try {
+      parsedSelectedData = JSON.parse(selectedData);
+      parsedCandidateImages = candidateImages ? JSON.parse(candidateImages) : [];
+      parsedFileData = fileData ? JSON.parse(fileData) : [];
+    } catch (error) {
+      console.error('❌ JSON parsing error:', error);
+      return res.status(400).json({ message: 'Invalid JSON format in selectedData, candidateImages, or fileData' });
+    }
 
     if (!Array.isArray(parsedSelectedData) || parsedSelectedData.length === 0) {
+      console.error('❌ Invalid selectedData:', parsedSelectedData);
       return res.status(400).json({ message: 'selectedData must be a non-empty array' });
     }
 
-    const imagePaths = req.files.map((file, index) => ({
-      candidateIndex: parsedCandidateImages[index]?.candidateIndex ?? index,
-      imagePath: file.path,
-    }));
+    const imagePaths = req.files && req.files.length > 0
+      ? req.files.map((file, index) => ({
+          candidateIndex: parsedCandidateImages[index]?.candidateIndex ?? index,
+          imagePath: file.path,
+        }))
+      : parsedCandidateImages;
 
     const event = new Event({
       id,
@@ -453,6 +519,7 @@ app.post('/api/events', upload.array('images', 10), async (req, res) => {
       name,
       description,
       selectedData: parsedSelectedData,
+      fileData: parsedFileData,
       candidateImages: imagePaths,
       expiry: Number(expiry),
       link,
@@ -474,7 +541,10 @@ app.post('/api/events', upload.array('images', 10), async (req, res) => {
 
 // Update Event
 app.put('/api/events/:id', upload.array('images', 10), async (req, res) => {
-  console.log('📥 Event update request for ID:', req.params.id, 'Data:', req.body, req.files);
+  console.log('📥 Event update request for ID:', req.params.id, 'Data:', {
+    body: req.body,
+    files: req.files ? req.files.map(file => ({ originalname: file.originalname, path: file.path })) : [],
+  });
 
   const {
     date,
@@ -486,6 +556,7 @@ app.put('/api/events/:id', upload.array('images', 10), async (req, res) => {
     candidateImages,
     expiry,
     link,
+    fileData, // Include fileData
   } = req.body;
 
   const missingFields = [];
@@ -499,21 +570,32 @@ app.put('/api/events/:id', upload.array('images', 10), async (req, res) => {
   if (!link) missingFields.push('link');
 
   if (missingFields.length > 0) {
+    console.error('❌ Missing fields:', missingFields);
     return res.status(400).json({ message: `Missing required fields: ${missingFields.join(', ')}` });
   }
 
   try {
-    const parsedSelectedData = JSON.parse(selectedData);
-    const parsedCandidateImages = candidateImages ? JSON.parse(candidateImages) : [];
+    let parsedSelectedData, parsedCandidateImages, parsedFileData;
+    try {
+      parsedSelectedData = JSON.parse(selectedData);
+      parsedCandidateImages = candidateImages ? JSON.parse(candidateImages) : [];
+      parsedFileData = fileData ? JSON.parse(fileData) : [];
+    } catch (error) {
+      console.error('❌ JSON parsing error:', error);
+      return res.status(400).json({ message: 'Invalid JSON format in selectedData, candidateImages, or fileData' });
+    }
 
     if (!Array.isArray(parsedSelectedData) || parsedSelectedData.length === 0) {
+      console.error('❌ Invalid selectedData:', parsedSelectedData);
       return res.status(400).json({ message: 'selectedData must be a non-empty array' });
     }
 
-    const imagePaths = req.files.map((file, index) => ({
-      candidateIndex: parsedCandidateImages[index]?.candidateIndex ?? index,
-      imagePath: file.path,
-    }));
+    const imagePaths = req.files && req.files.length > 0
+      ? req.files.map((file, index) => ({
+          candidateIndex: parsedCandidateImages[index]?.candidateIndex ?? index,
+          imagePath: file.path,
+        }))
+      : parsedCandidateImages;
 
     const existingEvent = await Event.findOne({ id: req.params.id });
     if (existingEvent && existingEvent.candidateImages) {
@@ -533,6 +615,7 @@ app.put('/api/events/:id', upload.array('images', 10), async (req, res) => {
         name,
         description,
         selectedData: parsedSelectedData,
+        fileData: parsedFileData,
         candidateImages: imagePaths,
         expiry: Number(expiry),
         link,
@@ -541,6 +624,7 @@ app.put('/api/events/:id', upload.array('images', 10), async (req, res) => {
     );
 
     if (!event) {
+      console.error('❌ Event not found for ID:', req.params.id);
       return res.status(404).json({ message: 'Event not found' });
     }
 
@@ -560,6 +644,7 @@ app.delete('/api/events/:id', async (req, res) => {
     const event = await Event.findOneAndDelete({ id: req.params.id });
 
     if (!event) {
+      console.error('❌ Event not found for ID:', req.params.id);
       return res.status(404).json({ message: 'Event not found' });
     }
 
@@ -578,7 +663,13 @@ app.delete('/api/events/:id', async (req, res) => {
 });
 
 // Serve uploaded files
-app.use('/uploads', express.static('uploads'));
+app.use('/Uploads', express.static('Uploads'));
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('❌ Global error:', err.stack);
+  res.status(500).json({ message: 'Internal server error', error: err.message });
+});
 
 // ===== Start Server =====
 app.listen(PORT, () => {

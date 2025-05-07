@@ -4,11 +4,12 @@ import './Voting.css';
 
 const Voting = () => {
   const { eventId } = useParams();
-  const navigate = useNavigate(); // Add useNavigate for navigation
+  const navigate = useNavigate();
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [votingStarted, setVotingStarted] = useState(false);
+  const [canStartVoting, setCanStartVoting] = useState(false);
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -17,6 +18,7 @@ const Voting = () => {
         if (localEvent && localEvent.expiry > new Date().getTime()) {
           setEvent(localEvent);
           setLoading(false);
+          checkVotingTime(localEvent);
           return;
         }
 
@@ -35,9 +37,22 @@ const Voting = () => {
         setEvent(eventData);
         localStorage.setItem(`event-${eventId}`, JSON.stringify(eventData));
         setLoading(false);
+        checkVotingTime(eventData);
       } catch (err) {
         setError(err.message);
         setLoading(false);
+      }
+    };
+
+    const checkVotingTime = (eventData) => {
+      if (eventData.date && eventData.startTime && eventData.stopTime) {
+        // Combine date with startTime and stopTime into full datetime strings
+        const [startHours, startMinutes] = eventData.startTime.split(':');
+        const [stopHours, stopMinutes] = eventData.stopTime.split(':');
+        const startDateTime = new Date(`${eventData.date}T${startHours}:${startMinutes}:00`).getTime();
+        const stopDateTime = new Date(`${eventData.date}T${stopHours}:${stopMinutes}:00`).getTime();
+        const now = new Date().getTime();
+        setCanStartVoting(now >= startDateTime && now <= stopDateTime);
       }
     };
 
@@ -47,16 +62,7 @@ const Voting = () => {
   const handleStartVoting = () => {
     console.log('Voting started at:', new Date().toLocaleTimeString());
     setVotingStarted(true);
-    // Navigate to the voting start page
     navigate(`/voting/${eventId}/start`);
-
-    // Optional: Send to backend
-    // fetch(`http://localhost:5000/api/events/${eventId}/start`, {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //   },
-    // }).catch(err => console.error('Failed to start voting:', err));
   };
 
   if (loading) return <div>Loading...</div>;
@@ -108,15 +114,17 @@ const Voting = () => {
           </tbody>
         </table>
       ) : (
-        <p>No candidates selected.</p>
+        <p>No Candidates Selected.</p>
       )}
 
-      {!votingStarted ? (
+      {!votingStarted && canStartVoting ? (
         <button onClick={handleStartVoting} className="start-button">
           Start Voting
         </button>
+      ) : votingStarted ? (
+        <p className="started-text">Voting Has Started!</p>
       ) : (
-        <p className="started-text">Voting has started!</p>
+        <p className="not-started-text">Voting Not Yet Available</p>
       )}
     </div>
   );

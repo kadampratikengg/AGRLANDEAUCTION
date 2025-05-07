@@ -18,7 +18,6 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const [fileData, setFileData] = useState([]);
   const [checkedRows, setCheckedRows] = useState([]);
   const [fileName, setFileName] = useState('');
-  const [isCreateEventClicked, setIsCreateEventClicked] = useState(false);
   const [showEventForm, setShowEventForm] = useState(false);
   const [selectedData, setSelectedData] = useState([]);
   const [eventDate, setEventDate] = useState('');
@@ -32,7 +31,12 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const [editingEventId, setEditingEventId] = useState(null);
   const [candidateImages, setCandidateImages] = useState({});
   const [eventId, setEventId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
+
+  // Log environment variable for debugging
+  console.log('REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
 
   // Reset form after successful event creation or update
   const resetForm = () => {
@@ -46,7 +50,6 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     setStopTime('');
     setEventName('');
     setEventDescription('');
-    setIsCreateEventClicked(false);
     setGeneratedLink('');
     setEventCreated(false);
     setEditingEventId(null);
@@ -132,16 +135,26 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   // Fetch active events from backend
   useEffect(() => {
     const fetchActiveEvents = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        const response = await fetch('http://localhost:5000/api/events');
-        if (!response.ok) throw new Error('Failed to fetch events');
+        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+        const response = await fetch(`${apiUrl}/api/events`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        if (!response.ok) {
+          throw new Error('Failed to fetch events');
+        }
         const events = await response.json();
-        setActiveEvents(events.filter(event => {
-          const eventEnd = new Date(`${event.date}T${event.stopTime}`);
-          return eventEnd.getTime() > Date.now();
-        }));
-      } catch (error) {
-        console.error('Error fetching events:', error);
+        setActiveEvents(events);
+      } catch (err) {
+        setError('Failed to load events. Please try again later.');
+        console.error('Error fetching events:', err);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -152,7 +165,8 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
   const handleEditEvent = async (eventId) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/events/${eventId}`);
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiUrl}/api/events/${eventId}`);
       if (!response.ok) throw new Error('Failed to fetch event');
       const eventToEdit = await response.json();
       
@@ -162,21 +176,38 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       setEventName(eventToEdit.name);
       setEventDescription(eventToEdit.description);
       setSelectedData(eventToEdit.selectedData);
+      setFileData(eventToEdit.fileData || []);
+      setCheckedRows(
+        eventToEdit.fileData
+          ? eventToEdit.fileData
+              .map((data, index) =>
+                eventToEdit.selectedData.some((selected) =>
+                  Object.keys(data).every((key) => selected[key] === data[key])
+                )
+                  ? index
+                  : null
+              )
+              .filter((index) => index !== null)
+          : []
+      );
       setShowEventForm(true);
-      setIsCreateEventClicked(true);
       setEditingEventId(eventId);
       setEventId(eventId);
       
       // Set existing candidate images
       const images = {};
       eventToEdit.candidateImages.forEach((img, index) => {
-        images[index] = { dataUrl: `/uploads/${img.imagePath.split('/').pop()}` };
+        images[index] = { dataUrl: `/Uploads/${img.imagePath.split('/').pop()}` };
       });
       setCandidateImages(images);
     } catch (error) {
       console.error('Error fetching event for edit:', error);
       alert('Failed to load event for editing');
     }
+  };
+
+  const handleViewResults = (eventId) => {
+    navigate(`/results/${eventId}`);
   };
 
   const toggleDropdown = () => {
@@ -201,18 +232,50 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     setIsSidebarMinimized((prevState) => !prevState);
   };
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (file && file.name.endsWith('.xlsx')) {
       setFileName(file.name);
       const reader = new FileReader();
-      reader.onload = (event) => {
+      reader.onload = async (event) => {
         const data = event.target.result;
         const workbook = XLSX.read(data, { type: 'binary' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
         setFileData(jsonData);
+        setSelectedData(jsonData); // Automatically select all rows
+        setCheckedRows(jsonData.map((_, index) => index)); // Check all rows
+
+        // Store Excel data in backend
+        try {
+          const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+          if (!apiUrl) {
+            throw new Error('API URL is not defined. Please check your environment configuration.');
+          }
+
+          const response = await fetch(`${apiUrl}/api/excel-data`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              eventId: editingEventId || eventId,
+              fileData: jsonData,
+              timestamp: new Date().toISOString(),
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to store Excel data');
+          }
+
+          console.log('Excel data stored successfully');
+        } catch (error) {
+          console.error('Error storing Excel data:', error);
+          alert('Failed to store Excel data: ' + error.message);
+        }
       };
       reader.readAsBinaryString(file);
     } else {
@@ -228,51 +291,18 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         return [...prevCheckedRows, index];
       }
     });
+    setSelectedData(checkedRows.map((index) => fileData[index]));
   };
 
   const handleCreateEvent = () => {
-    setIsCreateEventClicked(true);
+    setShowEventForm(true);
     setEventId(uuidv4());
-  };
-
-  const handleNext = async () => {
-    const selectedRows = checkedRows.map((index) => fileData[index]);
-    setSelectedData(selectedRows);
-
-    if (!editingEventId && !eventId) {
-      alert('Event ID is missing. Please try again.');
-      return;
-    }
-
-    try {
-      const response = await fetch('http://localhost:5000/api/excel-data', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          eventId: editingEventId || eventId,
-          fileData,
-          timestamp: new Date().toISOString(),
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to store Excel data');
-      }
-
-      console.log('Excel data stored successfully');
-      setShowEventForm(true);
-    } catch (error) {
-      console.error('Error storing Excel data:', error);
-      alert('Failed to store Excel data: ' + error.message);
-    }
   };
 
   const handleDeleteEvent = async (id) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/events/${id}`, {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiUrl}/api/events/${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -317,6 +347,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     formData.append('name', eventName);
     formData.append('description', eventDescription);
     formData.append('selectedData', JSON.stringify(selectedData));
+    formData.append('fileData', JSON.stringify(fileData)); // Include fileData
     formData.append('expiry', expiryTime);
     formData.append('link', `${window.location.origin}/voting/${currentEventId}`);
     formData.append('candidateImages', JSON.stringify(serializedCandidateImages));
@@ -330,9 +361,10 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
     try {
       const isEditing = !!editingEventId;
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
       const url = isEditing
-        ? `http://localhost:5000/api/events/${editingEventId}`
-        : 'http://localhost:5000/api/events';
+        ? `${apiUrl}/api/events/${editingEventId}`
+        : `${apiUrl}/api/events`;
       const method = isEditing ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -356,6 +388,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         name: eventName,
         description: eventDescription,
         selectedData,
+        fileData,
         expiry: expiryTime,
         link: result.link || `${window.location.origin}/voting/${currentEventId}`,
         candidateImages: serializedCandidateImages,
@@ -432,25 +465,61 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
           <h2>Welcome to the Manage</h2>
           <div className="sections-container">
             <div className="current-section">
-              <h3>Upcoming Event</h3>
-              {activeEvents.length === 0 ? (
+              <h3>Upcoming Events</h3>
+              {loading ? (
+                <p>Loading events...</p>
+              ) : error ? (
+                <p>{error}</p>
+              ) : activeEvents.length === 0 ? (
                 <p>No current events, auctions, or items.</p>
               ) : (
                 activeEvents.map((event) => (
                   <div key={event.id} className="current-event">
-                    <span
-                      className="delete-icon"
-                      onClick={() => handleDeleteEvent(event.id)}
-                      title="Delete Event"
-                    >
-                      🗑️
-                    </span>
                     <h4>{event.name}</h4>
                     <p>{event.description}</p>
                     <p>Date: {event.date}</p>
                     <p>Start: {event.startTime} - Stop: {event.stopTime}</p>
                     <a href={event.link} target="_blank" rel="noopener noreferrer">{event.link}</a>
-                    <button onClick={() => handleEditEvent(event.id)}>Edit Event</button>
+                    <div className="event-actions" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                      <button
+                        className="delete-btn"
+                        onClick={() => handleDeleteEvent(event.id)}
+                        title="Delete Event"
+                        style={{
+                          background: '#ff4d4d',
+                          color: 'white',
+                          padding: '5px 10px',
+                          border: 'none',
+                          borderRadius: '5px',
+                        }}
+                      >
+                        Delete
+                      </button>
+                      <button
+                        onClick={() => handleEditEvent(event.id)}
+                        style={{
+                          background: '#4CAF50',
+                          color: 'white',
+                          padding: '5px 10px',
+                          border: 'none',
+                          borderRadius: '5px',
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleViewResults(event.id)}
+                        style={{
+                          background: '#2196F3',
+                          color: 'white',
+                          padding: '5px 10px',
+                          border: 'none',
+                          borderRadius: '5px',
+                        }}
+                      >
+                        Results
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -459,100 +528,10 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
             <div className="create-section">
               <h3>Create</h3>
               <button onClick={handleCreateEvent}>Create Event</button>
-              <p>File Uploaded: {fileName}</p>
-              <a href="../file/AllDetailsFile.xlsx" target="_blank" rel="noopener noreferrer">Download Sample File</a>
-
-              {isCreateEventClicked && (
-                <div className="upload-section">
-                  <input type="file" accept=".xlsx" onChange={handleFileUpload} style={{ marginTop: '10px' }} />
-                  {fileData.length > 0 && (
-                    <div>
-                      <h4>Uploaded Excel Data</h4>
-                      <table>
-                        <thead>
-                          <tr>
-                            {Object.keys(fileData[0]).map((key) => (
-                              <th key={key}>{key}</th>
-                            ))}
-                            <th>Check</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {fileData.map((row, index) => (
-                            <tr key={index}>
-                              {Object.values(row).map((value, i) => (
-                                <td key={i}>{value}</td>
-                              ))}
-                              <td>
-                                <input
-                                  type="checkbox"
-                                  checked={checkedRows.includes(index)}
-                                  onChange={() => handleCheckboxChange(index)}
-                                />
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      <button onClick={handleNext}>Next</button>
-                    </div>
-                  )}
-                </div>
-              )}
 
               {showEventForm && (
                 <div className="event-form-container">
                   <h3>{editingEventId ? 'Edit Event' : 'Create Event'}</h3>
-                  <h4>Selected Candidate:</h4>
-                  <table>
-                    <thead>
-                      <tr>
-                        {Object.keys(selectedData[0] || {}).map((key) => (
-                          <th key={key}>{key}</th>
-                        ))}
-                        <th>Image</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedData.map((data, index) => (
-                        <tr key={index}>
-                          {Object.values(data).map((value, i) => (
-                            <td key={i}>{value}</td>
-                          ))}
-                          <td>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => handleImageUpload(index, e)}
-                              style={{ margin: '5px 0' }}
-                            />
-                            {candidateImages[index] && (
-                              <div>
-                                <img
-                                  src={candidateImages[index].dataUrl}
-                                  alt={`Candidate ${index}`}
-                                  style={{ maxWidth: '100px', margin: '5px 0' }}
-                                />
-                                <button
-                                  onClick={() => handleClearImage(index)}
-                                  style={{
-                                    background: '#ff4d4d',
-                                    color: 'white',
-                                    padding: '5px 10px',
-                                    border: 'none',
-                                    borderRadius: '5px',
-                                  }}
-                                >
-                                  Clear Image
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-
                   <form onSubmit={handleEventFormSubmit}>
                     <label htmlFor="eventDate">Event Date:</label>
                     <input
@@ -598,13 +577,93 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                       required
                     />
 
+                    <label htmlFor="fileUpload">Upload Excel File:</label>
+                    <input
+                      type="file"
+                      id="fileUpload"
+                      accept=".xlsx"
+                      onChange={handleFileUpload}
+                      style={{ marginTop: '10px' }}
+                    />
+                    <p>File Uploaded: {fileName || 'AllDetailsFile.xlsx'}</p>
+                    <a href="../file/AllDetailsFile.xlsx" target="_blank" rel="noopener noreferrer">
+                      Download Sample File
+                    </a>
+
+                    {fileData.length > 0 && (
+                      <div>
+                        <h4>Selected Candidates:</h4>
+                        <table>
+                          <thead>
+                            <tr>
+                              {Object.keys(fileData[0]).map((key) => (
+                                <th key={key}>{key}</th>
+                              ))}
+                              <th>Image</th>
+                              <th>Check</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {fileData.map((data, index) => (
+                              <tr key={index}>
+                                {Object.values(data).map((value, i) => (
+                                  <td key={i}>{value}</td>
+                                ))}
+                                <td>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => handleImageUpload(index, e)}
+                                    style={{ margin: '5px 0' }}
+                                  />
+                                  {candidateImages[index] && (
+                                    <div>
+                                      <img
+                                        src={candidateImages[index].dataUrl}
+                                        alt={`Candidate ${index}`}
+                                        style={{ maxWidth: '100px', margin: '5px 0' }}
+                                      />
+                                      <button
+                                        onClick={() => handleClearImage(index)}
+                                        style={{
+                                          background: '#ff4d4d',
+                                          color: 'white',
+                                          padding: '5px 10px',
+                                          border: 'none',
+                                          borderRadius: '5px',
+                                        }}
+                                      >
+                                        Clear Image
+                                      </button>
+                                    </div>
+                                  )}
+                                </td>
+                                <td>
+                                  <input
+                                    type="checkbox"
+                                    checked={checkedRows.includes(index)}
+                                    onChange={() => handleCheckboxChange(index)}
+                                  />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
                     <button type="submit">{editingEventId ? 'Update Event' : 'Create Event'}</button>
                   </form>
 
                   {eventCreated && (
                     <div className="event-success">
                       <h4>Event {editingEventId ? 'Updated' : 'Created'} Successfully</h4>
-                      <p>Your event link: <a href={generatedLink} target="_blank" rel="noopener noreferrer">{generatedLink}</a></p>
+                      <p>
+                        Your event link:{' '}
+                        <a href={generatedLink} target="_blank" rel="noopener noreferrer">
+                          {generatedLink}
+                        </a>
+                      </p>
                     </div>
                   )}
                 </div>
