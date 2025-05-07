@@ -143,7 +143,7 @@ const Event = mongoose.model(
         required: true,
       },
     ],
-    fileData: { type: Array, required: false }, // Added to store Excel data
+    fileData: { type: Array, required: false }, // Store Excel data
     candidateImages: [
       {
         candidateIndex: Number,
@@ -348,6 +348,7 @@ app.post('/api/excel-data', async (req, res) => {
   }
 
   try {
+    // Update the event with new fileData, overwriting the old one
     const event = await Event.findOneAndUpdate(
       { id: eventId },
       { $set: { fileData, timestamp } },
@@ -358,17 +359,17 @@ app.post('/api/excel-data', async (req, res) => {
       return res.status(404).json({ message: 'Event not found' });
     }
 
-    console.log('✅ Excel data saved to event:', event);
-    res.status(201).json({ message: 'Excel data saved successfully' });
+    console.log('✅ Excel data updated for event:', event);
+    res.status(201).json({ message: 'Excel data updated successfully' });
   } catch (error) {
-    console.error('❌ Error saving Excel data:', error);
-    res.status(500).json({ message: 'Failed to save Excel data', error: error.message });
+    console.error('❌ Error updating Excel data:', error);
+    res.status(500).json({ message: 'Failed to update Excel data', error: error.message });
   }
 });
 
 // Verify ID
 app.post('/api/verify-id/:eventId', async (req, res) => {
-  console.log('📥 ID verification request for event:', req.params.eventId, 'ID:', req.body.id);
+  console.log('📥 ID verification request for event:', req.params.eventId, ' Cause I am ID:', req.body.id);
 
   const { id } = req.body;
   const eventId = req.params.eventId;
@@ -469,7 +470,7 @@ app.post('/api/events', upload.array('images', 10), async (req, res) => {
     candidateImages,
     expiry,
     link,
-    fileData, // Include fileData
+    fileData,
   } = req.body;
 
   const missingFields = [];
@@ -556,7 +557,7 @@ app.put('/api/events/:id', upload.array('images', 10), async (req, res) => {
     candidateImages,
     expiry,
     link,
-    fileData, // Include fileData
+    fileData,
   } = req.body;
 
   const missingFields = [];
@@ -597,6 +598,7 @@ app.put('/api/events/:id', upload.array('images', 10), async (req, res) => {
         }))
       : parsedCandidateImages;
 
+    // Delete old images
     const existingEvent = await Event.findOne({ id: req.params.id });
     if (existingEvent && existingEvent.candidateImages) {
       existingEvent.candidateImages.forEach((image) => {
@@ -606,6 +608,7 @@ app.put('/api/events/:id', upload.array('images', 10), async (req, res) => {
       });
     }
 
+    // Update event with new fileData, overwriting the old one
     const event = await Event.findOneAndUpdate(
       { id: req.params.id },
       {
@@ -615,7 +618,7 @@ app.put('/api/events/:id', upload.array('images', 10), async (req, res) => {
         name,
         description,
         selectedData: parsedSelectedData,
-        fileData: parsedFileData,
+        fileData: parsedFileData, // Overwrite old fileData
         candidateImages: imagePaths,
         expiry: Number(expiry),
         link,
@@ -648,13 +651,17 @@ app.delete('/api/events/:id', async (req, res) => {
       return res.status(404).json({ message: 'Event not found' });
     }
 
-    event.candidateImages.forEach((image) => {
-      if (image.imagePath && fs.existsSync(image.imagePath)) {
-        fs.unlinkSync(image.imagePath);
-      }
-    });
+    // Delete associated images
+    if (event.candidateImages) {
+      event.candidateImages.forEach((image) => {
+        if (image.imagePath && fs.existsSync(image.imagePath)) {
+          fs.unlinkSync(image.imagePath);
+        }
+      });
+    }
 
-    console.log('✅ Event deleted successfully:', event);
+    // Note: fileData is removed automatically as the entire event document is deleted
+    console.log('✅ Event and associated fileData deleted successfully:', event);
     res.status(200).json({ message: 'Event deleted successfully' });
   } catch (error) {
     console.error('❌ Error deleting event:', error);

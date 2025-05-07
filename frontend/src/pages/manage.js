@@ -232,50 +232,21 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     setIsSidebarMinimized((prevState) => !prevState);
   };
 
+  // Handle file upload
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (file && file.name.endsWith('.xlsx')) {
       setFileName(file.name);
       const reader = new FileReader();
-      reader.onload = async (event) => {
+      reader.onload = (event) => {
         const data = event.target.result;
         const workbook = XLSX.read(data, { type: 'binary' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
         setFileData(jsonData);
-        setSelectedData(jsonData); // Automatically select all rows
-        setCheckedRows(jsonData.map((_, index) => index)); // Check all rows
-
-        // Store Excel data in backend
-        try {
-          const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-          if (!apiUrl) {
-            throw new Error('API URL is not defined. Please check your environment configuration.');
-          }
-
-          const response = await fetch(`${apiUrl}/api/excel-data`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              eventId: editingEventId || eventId,
-              fileData: jsonData,
-              timestamp: new Date().toISOString(),
-            }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Failed to store Excel data');
-          }
-
-          console.log('Excel data stored successfully');
-        } catch (error) {
-          console.error('Error storing Excel data:', error);
-          alert('Failed to store Excel data: ' + error.message);
-        }
+        setCheckedRows([]); // Initialize as empty for manual selection
+        setSelectedData([]); // Initialize as empty for manual selection
       };
       reader.readAsBinaryString(file);
     } else {
@@ -283,15 +254,19 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     }
   };
 
+  // Handle checkbox change
   const handleCheckboxChange = (index) => {
     setCheckedRows((prevCheckedRows) => {
+      let updatedCheckedRows;
       if (prevCheckedRows.includes(index)) {
-        return prevCheckedRows.filter((rowIndex) => rowIndex !== index);
+        updatedCheckedRows = prevCheckedRows.filter((rowIndex) => rowIndex !== index);
       } else {
-        return [...prevCheckedRows, index];
+        updatedCheckedRows = [...prevCheckedRows, index];
       }
+      // Update selectedData based on the updated checkedRows
+      setSelectedData(updatedCheckedRows.map((rowIndex) => fileData[rowIndex]));
+      return updatedCheckedRows;
     });
-    setSelectedData(checkedRows.map((index) => fileData[index]));
   };
 
   const handleCreateEvent = () => {
@@ -450,7 +425,9 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                 {isDropdownOpen && (
                   <div className='dropdown'>
                     <ul>
-                      <li><button onClick={handleProfile}>Profile</button></li>
+                      <
+
+li><button onClick={handleProfile}>Profile</button></li>
                       <li><button onClick={handleSettings}>Settings</button></li>
                       <li><button onClick={handleLogout}>Log Out</button></li>
                     </ul>
