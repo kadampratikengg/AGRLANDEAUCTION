@@ -10,6 +10,7 @@ import Settings from './pages/settings';
 import Profile from './pages/profile';
 import Voting from './pages/Voting';
 import Start from './pages/start';
+import Result from './pages/result';
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -44,6 +45,7 @@ const App = () => {
               <Route path='/settings' element={<Settings setIsAuthenticated={setIsAuthenticated} />} />
               <Route path="/voting/:eventId" element={<Voting setIsAuthenticated={setIsAuthenticated}/>} />
               <Route path="/voting/:eventId/start" element={<Start setIsAuthenticated={setIsAuthenticated}/>} />
+              <Route path="/results/:eventId" element={<Result setIsAuthenticated={setIsAuthenticated}/>} /> {/* Add Results route */}
             </>
           ) : (
             <>

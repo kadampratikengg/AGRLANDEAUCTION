@@ -53,19 +53,11 @@ const Start = () => {
       }
 
       const result = await response.json();
+      console.log('Verification Result:', result); // Debug log
       setVerificationResult(result);
 
-      if (result.verified) {
-        if (result.hasVoted) {
-          setError('You have already voted for this event.');
-          setTimeout(() => {
-            setError('');
-            setIdInput('');
-            setVerificationResult(null);
-          }, 3000);
-        } else {
-          await fetchEventData();
-        }
+      if (result.verified && !result.hasVoted) {
+        await fetchEventData();
       }
     } catch (err) {
       setError(err.message);
@@ -129,6 +121,10 @@ const Start = () => {
   };
 
   const handleGoForVote = () => {
+    if (verificationResult?.hasVoted) {
+      console.warn('Attempted to open vote popup for voter who already voted');
+      return;
+    }
     setShowVoterDetails(false);
     setShowVotePopup(true);
   };
@@ -153,7 +149,7 @@ const Start = () => {
 
           {error && <p className="error-message">{error}</p>}
 
-          {verificationResult && !error && (
+          {verificationResult && (
             <div className="verification-result">
               <h3>Verification Status: {verificationResult.verified ? 'Verified' : 'Not Verified'}</h3>
               {verificationResult.verified && verificationResult.rowData ? (
@@ -175,7 +171,11 @@ const Start = () => {
                       </tr>
                     </tbody>
                   </table>
-                  {verificationResult.verified && !verificationResult.hasVoted && (
+                  {verificationResult.hasVoted === true ? (
+                    <p className="already-voted-message">
+                      You have already voted for this event and cannot vote again.
+                    </p>
+                  ) : (
                     <button onClick={handleGoForVote} className="go-vote-button">
                       Go for Vote
                     </button>
@@ -189,12 +189,12 @@ const Start = () => {
         </>
       )}
 
-      {showVotePopup && verificationResult?.verified && eventData?.selectedData && (
+      {showVotePopup && verificationResult?.verified && !verificationResult.hasVoted && eventData?.selectedData && (
         <div className="vote-popup">
           <div className="vote-popup-content">
             <h3>Select a Candidate to Vote</h3>
             <div className="candidates-list-horizontal">
-              {eventData.selectedData.slice(0, 5).map((candidate, index) => (
+              {eventData.selectedData.slice(0, 20).map((candidate, index) => (
                 <div
                   key={index}
                   className={`candidate-card-horizontal ${
@@ -204,21 +204,25 @@ const Start = () => {
                     handleCandidateSelect(candidate.Name || `Candidate ${index + 1}`, index)
                   }
                 >
-                  <div className="candidate-details">
-                    {eventData.candidateImages && eventData.candidateImages[index] ? (
-                      <img
-                        src={`/uploads/${eventData.candidateImages[index].imagePath.split('/').pop()}`}
-                        alt={`Candidate ${index + 1}`}
-                        className="candidate-image-large"
-                      />
-                    ) : (
-                      <p>No image</p>
-                    )}
-                    {Object.entries(candidate).map(([key, value]) => (
-                      <p key={key}>
-                        <strong>{key}:</strong> {value}
-                      </p>
-                    ))}
+                  <div className="candidate-card-content">
+                    <div className="candidate-details">
+                      {Object.entries(candidate).map(([key, value]) => (
+                        <p key={key}>
+                          <strong>{key}:</strong> {value}
+                        </p>
+                      ))}
+                    </div>
+                    <div className="candidate-image-container">
+                      {eventData.candidateImages && eventData.candidateImages[index] ? (
+                        <img
+                          src={`/Uploads/${eventData.candidateImages[index].imagePath.split('/').pop()}`}
+                          alt={`Candidate ${index + 1}`}
+                          className="candidate-image-large"
+                        />
+                      ) : (
+                        <p>No image</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

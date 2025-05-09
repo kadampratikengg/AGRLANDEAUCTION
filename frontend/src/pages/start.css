@@ -38,7 +38,7 @@
   padding: 10px 20px;
   font-size: 1rem;
   margin-top: 10px;
-  background-color: #4CAF50;
+  background-color: #2E7D32; /* Dark green */
   color: white;
   border: none;
   border-radius: 5px;
@@ -47,7 +47,7 @@
 
 .verify-button:hover,
 .go-vote-button:hover {
-  background-color: #45a049;
+  background-color: #27632a; /* Slightly darker green on hover */
 }
 
 /* Error message */
@@ -59,7 +59,7 @@
 
 /* Success message */
 .success-message {
-  color: green;
+  color: #2E7D32; /* Dark green */
   font-weight: bold;
   margin-top: 20px;
 }
@@ -121,24 +121,39 @@
   border: 2px solid #ccc;
   padding: 15px;
   border-radius: 8px;
-  width: 180px;
-  text-align: center;
+  width: 350px;
   transition: all 0.3s ease;
   cursor: pointer;
   background-color: #f9f9f9;
 }
 
 .candidate-card-horizontal:hover {
-  border-color: #4CAF50;
+  border-color: #2E7D32; /* Dark green */
 }
 
 .candidate-card-horizontal.selected {
-  border-color: #2196F3;
-  background-color: #e3f2fd;
+  border-color: #2E7D32; /* Dark green */
+  background-color: #e8f5e9; /* Light green background for selected */
 }
 
 .candidate-card-horizontal.highlighted {
   animation: highlight 0.5s ease-in-out;
+}
+
+.candidate-card-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.candidate-details {
+  flex: 1;
+  text-align: left;
+  padding-right: 15px;
+}
+
+.candidate-image-container {
+  flex: 0 0 auto;
 }
 
 @keyframes highlight {
@@ -149,12 +164,11 @@
 
 /* Candidate image */
 .candidate-image-large {
-  width: 100%;
+  width: 150px;
   height: auto;
   max-height: 150px;
   object-fit: contain;
   border-radius: 5px;
-  margin-bottom: 10px;
 }
 
 .candidate-details p {
@@ -171,5 +185,16 @@
 /* Green highlight while beep is playing */
 .candidate-card-horizontal.selected.highlighted {
   background-color: #c8e6c9; /* light green */
-  border-color: #4CAF50;
+  border-color: #2E7D32; /* Dark green */
+}
+
+.already-voted-message {
+  color: red;
+  font-weight: bold;
+  font-size: 1.2em;
+  margin-top: 1em;
+  padding: 10px;
+  border: 1px solid red;
+  border-radius: 5px;
+  text-align: center;
 }
