@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 const CreateAccountPage = () => {
   const [email, setEmail] = useState('');
@@ -8,7 +9,9 @@ const CreateAccountPage = () => {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [loading, setLoading] = useState(false); // To manage loading state
+  const [loading, setLoading] = useState(false);
+
+  const navigate = useNavigate(); // Initialize useNavigate
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,20 +33,20 @@ const CreateAccountPage = () => {
     }
 
     setPasswordError('');
-    setErrorMessage(''); // Clear previous error message
+    setErrorMessage('');
 
-    setLoading(true); // Start loading spinner
+    setLoading(true);
 
     try {
-      // POST request with credentials flag
       const response = await axios.post(
         'http://localhost:5000/create-account',
         { email, password, confirmPassword },
-        { withCredentials: true } // Allow credentials (cookies, etc.)
+        { withCredentials: true }
       );
 
       if (response.data.message === 'Account created successfully') {
         alert('Account created successfully!');
+        navigate('/'); // Redirect to LoginPage
       }
     } catch (error) {
       if (error.response) {
@@ -54,7 +57,7 @@ const CreateAccountPage = () => {
         setErrorMessage('Request failed: ' + error.message);
       }
     } finally {
-      setLoading(false); // Stop loading spinner
+      setLoading(false);
     }
   };
 

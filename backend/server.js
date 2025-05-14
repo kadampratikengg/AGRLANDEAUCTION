@@ -194,6 +194,18 @@ app.get('/api/events', async (req, res) => {
   }
 });
 
+// Fetch votes for an event
+app.get('/api/votes/:eventId', async (req, res) => {
+  console.log('📥 Fetching votes for event:', req.params.eventId);
+  try {
+    const votes = await Vote.find({ eventId: req.params.eventId });
+    res.status(200).json(votes);
+  } catch (error) {
+    console.error('❌ Error fetching votes:', error);
+    res.status(500).json({ message: 'Failed to fetch votes', error: error.message });
+  }
+});
+
 // Create Account
 app.post('/create-account', async (req, res) => {
   const { email, password, confirmPassword } = req.body;
@@ -265,9 +277,27 @@ app.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
 
   try {
-    const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: 'Email not found' });
+    console.log('📥 Processing forgot-password for email:', email);
 
+    // Check JWT_SECRET
+    if (!process.env.JWT_SECRET) {
+      console.error('❌ JWT_SECRET is not defined');
+      return res.status(500).json({ message: 'Server configuration error: JWT_SECRET is not set' });
+    }
+
+    // Check email credentials
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      console.error('❌ Email credentials are not defined');
+      return res.status(500).json({ message: 'Server configuration error: Email credentials are not set' });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      console.log('❌ User not found for email:', email);
+      return res.status(400).json({ message: 'Email not found' });
+    }
+
+    console.log('✅ User found:', user._id);
     const resetToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
       expiresIn: '1h',
     });
@@ -281,11 +311,13 @@ app.post('/forgot-password', async (req, res) => {
       text: `You requested a password reset. Click here: ${resetLink}`,
     };
 
+    console.log('📧 Sending email to:', email);
     await transporter.sendMail(mailOptions);
+    console.log('✅ Email sent successfully');
     res.status(200).json({ message: 'Password reset link sent to your email.' });
   } catch (err) {
-    console.error('❌ Error sending password reset email:', err);
-    res.status(500).json({ message: 'Error sending email.' });
+    console.error('❌ Error sending password reset email:', err.stack);
+    res.status(500).json({ message: 'Error sending email.', error: err.message });
   }
 });
 
