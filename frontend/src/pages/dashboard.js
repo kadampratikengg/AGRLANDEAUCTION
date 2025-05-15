@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import './dashboard.css'; // This will include the merged CSS for both Navbar and Sidebar
+import React, { useState, useEffect } from 'react';
+import './dashboard.css';
 import {
   FaUserCircle,
   FaChevronLeft,
@@ -12,8 +12,32 @@ import { useNavigate } from 'react-router-dom';
 
 const Dashboard = ({ setIsAuthenticated, name }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isSidebarMinimized, setIsSidebarMinimized] = useState(true); // Default state is minimized
+  const [isSidebarMinimized, setIsSidebarMinimized] = useState(true);
+  const [events, setEvents] = useState([]); // State to store events
+  const [error, setError] = useState(null); // State for error handling
   const navigate = useNavigate();
+
+  // Fetch all active events on component mount
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/events', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`, // Include JWT token
+            'Content-Type': 'application/json',
+          },
+        });
+        if (!response.ok) {
+          throw new Error('Failed to fetch events');
+        }
+        const data = await response.json();
+        setEvents(data);
+      } catch (err) {
+        setError(err.message);
+      }
+    };
+    fetchEvents();
+  }, []);
 
   // Toggle the dropdown visibility
   const toggleDropdown = () => {
@@ -22,13 +46,9 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
   // Handle Logout
   const handleLogout = () => {
-    // Remove authentication state from localStorage
     localStorage.removeItem('isAuthenticated');
-
-    // Update the authentication state in App.js
+    localStorage.removeItem('token'); // Remove token on logout
     setIsAuthenticated(false);
-
-    // Redirect to the Login page
     navigate('/');
   };
 
@@ -45,6 +65,34 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   // Toggle sidebar minimize state
   const toggleSidebar = () => {
     setIsSidebarMinimized((prevState) => !prevState);
+  };
+
+  // Handle Delete Event
+  const handleDelete = async (eventId) => {
+    if (window.confirm('Are you sure you want to delete this event?')) {
+      try {
+        const response = await fetch(`http://localhost:5000/api/events/${eventId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (!response.ok) {
+          throw new Error('Failed to delete event');
+        }
+        // Remove the deleted event from the state
+        setEvents(events.filter((event) => event.id !== eventId));
+        alert('Event deleted successfully');
+      } catch (err) {
+        setError(err.message);
+      }
+    }
+  };
+
+  // Navigate to Results page
+  const handleResult = (eventId) => {
+    navigate(`/results/${eventId}`);
   };
 
   return (
@@ -114,26 +162,17 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                   <div className='dropdown'>
                     <ul>
                       <li>
-                        <button
-                          className='dropdown-item'
-                          onClick={handleProfile}
-                        >
+                        <button className='dropdown-item' onClick={handleProfile}>
                           Profile
                         </button>
                       </li>
                       <li>
-                        <button
-                          className='dropdown-item'
-                          onClick={handleSettings}
-                        >
+                        <button className='dropdown-item' onClick={handleSettings}>
                           Settings
                         </button>
                       </li>
                       <li>
-                        <button
-                          className='dropdown-item'
-                          onClick={handleLogout}
-                        >
+                        <button className='dropdown-item' onClick={handleLogout}>
                           Log Out
                         </button>
                       </li>
@@ -148,12 +187,55 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         {/* Content Section */}
         <div className='main-content'>
           <h1>Dashboard</h1>
-          
+
           {/* New 2 columns layout */}
           <div className="grid-container">
             <div className="grid-item">
-              <h2>Column 1</h2>
-              
+              <h2>Events</h2>
+              {error && <p className="error">{error}</p>}
+              {events.length === 0 && !error ? (
+                <p>No active events found.</p>
+              ) : (
+                <ul className="event-list">
+                  {events.map((event) => (
+                    <li key={event.id} className="event-item">
+                      <div className="event-details">
+                        <h3>{event.name}</h3>
+                        <p><strong>Date:</strong> {event.date}</p>
+                        <p><strong>Description:</strong> {event.description}</p>
+                      </div>
+                      <div className="event-actions">
+                        <button
+                          className="result-btn"
+                          onClick={() => handleResult(event.id)}
+                          style={{
+                            background: '#2196F3',
+                            color: 'white',
+                            padding: '5px 10px',
+                            border: 'none',
+                            borderRadius: '5px',
+                          }}
+                        >
+                          Result
+                        </button>
+                        <button
+                          className="delete-btn"
+                          onClick={() => handleDelete(event.id)}
+                          style={{
+                            background: '#ff4d4d',
+                            color: 'white',
+                            padding: '5px 10px',
+                            border: 'none',
+                            borderRadius: '5px',
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             <div className="grid-item">
               <h2>Column 2</h2>
