@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import './result.css';
 
@@ -10,15 +10,12 @@ const Result = () => {
   const [error, setError] = useState(null);
 
   // Fetch event and vote data from backend
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      // Fetch event details
       const eventResponse = await fetch(`http://localhost:5000/api/events/${eventId}`, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
       });
 
       if (!eventResponse.ok) {
@@ -29,11 +26,8 @@ const Result = () => {
       const eventData = await eventResponse.json();
       setEvent(eventData);
 
-      // Fetch votes for the event
       const votesResponse = await fetch(`http://localhost:5000/api/votes/${eventId}`, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
       });
 
       if (!votesResponse.ok) {
@@ -49,19 +43,18 @@ const Result = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [eventId]); // eventId is a dependency of fetchData
 
   useEffect(() => {
     fetchData();
-  }, [eventId]);
+  }, [fetchData]); // Include fetchData as dependency
 
-  // Calculate vote counts for each candidate
+  // Calculate vote counts
   const voteCounts = votes.reduce((acc, vote) => {
     acc[vote.candidate] = (acc[vote.candidate] || 0) + 1;
     return acc;
   }, {});
 
-  // Map candidates to include vote counts and images
   const candidateResults = event?.selectedData?.map((candidate, index) => ({
     name: candidate.Name || `Candidate ${index + 1}`,
     votes: voteCounts[candidate.Name || `Candidate ${index + 1}`] || 0,
