@@ -2,22 +2,31 @@ pipeline {
     agent any
 
     tools {
-        maven 'Maven3'         // Define the Maven tool (configured in Jenkins global tools)
-        jdk 'JDK17'            // Java version
-        nodejs 'Node18'        // Node.js version
+        maven 'Maven 3.9.2'
+        jdk 'Java 17'
     }
 
     environment {
-        DOCKER_HUB_CREDENTIALS = 'docker-hub-creds'  // Jenkins credentials ID for Docker Hub
-        DOCKER_HUB_REPO = 'yourdockerhubusername'
+        DOCKER_HUB_CREDENTIALS = 'docker-hub-creds'
+        DOCKER_HUB_REPO = 'kadampratikpassport'
         BACKEND_IMAGE = "${DOCKER_HUB_REPO}/backend-app"
         FRONTEND_IMAGE = "${DOCKER_HUB_REPO}/frontend-app"
     }
 
     stages {
-        stage('Checkout') {
+        stage('Clean Workspace') {
             steps {
-                checkout scm
+                // Clean the workspace to avoid git clone errors
+                cleanWs()
+            }
+        }
+
+        stage('Clone Repository') {
+            steps {
+                script {
+                    // Clone the repository directly into workspace
+                    bat 'git clone https://github.com/kadampratikengg/AGRLANDEAUCTION.git .'
+                }
             }
         }
 
@@ -25,10 +34,9 @@ pipeline {
             steps {
                 dir('backend') {
                     script {
-                        // Node.js backend: install dependencies & run build (if needed)
-                        sh 'npm install'
-                        // Optional: Run tests
-                        // sh 'npm test'
+                        bat 'node -v'
+                        bat 'npm -v'
+                        bat 'npm install'
                     }
                 }
             }
@@ -37,8 +45,10 @@ pipeline {
         stage('Build Frontend') {
             steps {
                 dir('frontend') {
-                    sh 'npm install'
-                    sh 'npm run build'
+                    bat 'node -v'
+                    bat 'npm -v'
+                    bat 'npm install'
+                    bat 'npm run build'
                 }
             }
         }
@@ -72,9 +82,9 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    sh '''
-                        kubectl apply -f k8s/backend-deployment.yaml
-                        kubectl apply -f k8s/frontend-deployment.yaml
+                    bat '''
+                        kubectl apply -f k8s/backend-deployment.yaml --validate=false
+                        kubectl apply -f k8s/frontend-deployment.yaml --validate=false
                     '''
                 }
             }
