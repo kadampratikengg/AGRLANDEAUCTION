@@ -17,7 +17,7 @@ const Start = () => {
 
   const fetchEventData = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/events/${eventId}`);
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/events/${eventId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch event data');
       }
@@ -39,7 +39,7 @@ const Start = () => {
     setShowVotePopup(false);
 
     try {
-      const response = await fetch(`http://localhost:5000/api/verify-id/${eventId}`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/verify-id/${eventId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -75,7 +75,7 @@ const Start = () => {
 
     const handleVoteSubmission = async () => {
       try {
-        const response = await fetch(`http://localhost:5000/api/vote/${eventId}`, {
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/vote/${eventId}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

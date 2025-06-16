@@ -138,7 +138,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       setLoading(true);
       setError(null);
       try {
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+        const apiUrl = process.env.REACT_APP_API_URL;
         const response = await fetch(`${apiUrl}/api/events`, {
           method: 'GET',
           headers: {
@@ -165,7 +165,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
   const handleEditEvent = async (eventId) => {
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL;
       const response = await fetch(`${apiUrl}/api/events/${eventId}`);
       if (!response.ok) throw new Error('Failed to fetch event');
       const eventToEdit = await response.json();
@@ -276,7 +276,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
   const handleDeleteEvent = async (id) => {
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL;
       const response = await fetch(`${apiUrl}/api/events/${id}`, {
         method: 'DELETE',
         headers: {
@@ -336,7 +336,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
     try {
       const isEditing = !!editingEventId;
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL;
       const url = isEditing
         ? `${apiUrl}/api/events/${editingEventId}`
         : `${apiUrl}/api/events`;

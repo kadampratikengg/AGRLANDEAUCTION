@@ -94,7 +94,7 @@ const Dashboard = ({ setIsAuthenticated }) => {
     };
   
     try {
-      const apiBaseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiBaseUrl = process.env.REACT_APP_API_URL;
       console.log('Submitting contact form to:', `${apiBaseUrl}/submit-contact`); // Debug log
       const res = await fetch(`${apiBaseUrl}/submit-contact`, {
         method: 'POST',
@@ -136,7 +136,7 @@ const Dashboard = ({ setIsAuthenticated }) => {
     };
   
     try {
-      const apiBaseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiBaseUrl = process.env.REACT_APP_API_URL;
       console.log('Submitting order form to:', `${apiBaseUrl}/submit-order`); // Debug log
       const res = await fetch(`${apiBaseUrl}/submit-order`, {
         method: 'POST',

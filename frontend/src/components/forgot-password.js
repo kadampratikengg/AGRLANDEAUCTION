@@ -24,8 +24,8 @@ const ForgotPasswordPage = () => {
 
     try {
       // Send request to backend
-      const response = await fetch(
-        'http://localhost:5000/forgot-password',
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/forgot-password`, 
+
         {
           method: 'POST',
           headers: {

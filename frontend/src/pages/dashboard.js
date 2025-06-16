@@ -21,7 +21,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/events', {
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/events`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`, // Include JWT token
             'Content-Type': 'application/json',
@@ -71,7 +71,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const handleDelete = async (eventId) => {
     if (window.confirm('Are you sure you want to delete this event?')) {
       try {
-        const response = await fetch(`http://localhost:5000/api/events/${eventId}`, {
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/events/${eventId}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,

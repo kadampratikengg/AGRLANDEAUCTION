@@ -14,7 +14,7 @@ const Result = () => {
     setLoading(true);
     setError(null);
     try {
-      const eventResponse = await fetch(`http://localhost:5000/api/events/${eventId}`, {
+      const eventResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/events/${eventId}`, {
         headers: { 'Content-Type': 'application/json' },
       });
 
@@ -26,7 +26,7 @@ const Result = () => {
       const eventData = await eventResponse.json();
       setEvent(eventData);
 
-      const votesResponse = await fetch(`http://localhost:5000/api/votes/${eventId}`, {
+      const votesResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/votes/${eventId}`, {
         headers: { 'Content-Type': 'application/json' },
       });
 
