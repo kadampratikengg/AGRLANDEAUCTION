@@ -53,7 +53,7 @@ const Start = () => {
       }
 
       const result = await response.json();
-      console.log('Verification Result:', result); // Debug log
+      console.log('Verification Result:', result);
       setVerificationResult(result);
 
       if (result.verified && !result.hasVoted) {
@@ -151,7 +151,14 @@ const Start = () => {
 
           {verificationResult && (
             <div className="verification-result">
-              <h3>Verification Status: {verificationResult.verified ? 'Verified' : 'Not Verified'}</h3>
+              <h3>
+                Verification Status: {verificationResult.verified ? 'Verified' : 'Not Verified'}
+              </h3>
+              {verificationResult.verified && verificationResult.hasVoted && (
+                <p className="already-voted-message">
+                  Already voted
+                </p>
+              )}
               {verificationResult.verified && verificationResult.rowData ? (
                 <div className="row-details">
                   <h4>Voter Details:</h4>
@@ -171,11 +178,7 @@ const Start = () => {
                       </tr>
                     </tbody>
                   </table>
-                  {verificationResult.hasVoted === true ? (
-                    <p className="already-voted-message">
-                      You have already voted for this event and cannot vote again.
-                    </p>
-                  ) : (
+                  {verificationResult.verified && !verificationResult.hasVoted && (
                     <button onClick={handleGoForVote} className="go-vote-button">
                       Go for Vote
                     </button>
@@ -215,7 +218,7 @@ const Start = () => {
                     <div className="candidate-image-container">
                       {eventData.candidateImages && eventData.candidateImages[index] ? (
                         <img
-                          src={`/Uploads/${eventData.candidateImages[index].imagePath.split('/').pop()}`}
+                          src={`${process.env.REACT_APP_API_URL}/Uploads/${eventData.candidateImages[index].imagePath.split(/[\\/]/).pop()}`}
                           alt={`Candidate ${index + 1}`}
                           className="candidate-image-large"
                         />

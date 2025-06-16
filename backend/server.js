@@ -36,6 +36,10 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    console.error('❌ Multer error:', err.message, 'Field:', err.field);
+    return res.status(400).json({ message: `Multer error: ${err.message}`, field: err.field });
+  }
   if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
     return res.status(400).json({ message: 'Invalid JSON payload' });
   }
@@ -68,6 +72,7 @@ const upload = multer({
       cb(new Error('Only image files are allowed'), false);
     }
   },
+  limits: { files: 10 },
 });
 
 // ===== MongoDB Connection =====
@@ -143,7 +148,7 @@ const Event = mongoose.model(
         required: true,
       },
     ],
-    fileData: { type: Array, required: false }, // Store Excel data
+    fileData: { type: Array, required: false },
     candidateImages: [
       {
         candidateIndex: Number,
@@ -181,25 +186,11 @@ app.get('/', (req, res) => {
   res.status(200).json({ message: '✅ Backend is running' });
 });
 
-// Fetch all active events
-// app.get('/api/events', async (req, res) => {
-//   console.log('📥 Fetching all active events');
-//   try {
-//     const currentTime = Date.now();
-//     const events = await Event.find({ expiry: { $gt: currentTime } });
-//     res.status(200).json(events);
-//   } catch (error) {
-//     console.error('❌ Error fetching events:', error);
-//     res.status(500).json({ message: 'Failed to fetch events', error: error.message });
-//   }
-// });
-
 // Fetch all events
-
 app.get('/api/events', async (req, res) => {
-console.log('📥 Fetching all events');
+  console.log('📥 Fetching all events');
   try {
-    const events = await Event.find(); // No expiry filter
+    const events = await Event.find();
     res.status(200).json(events);
   } catch (error) {
     console.error('❌ Error fetching all events:', error);
@@ -292,13 +283,11 @@ app.post('/forgot-password', async (req, res) => {
   try {
     console.log('📥 Processing forgot-password for email:', email);
 
-    // Check JWT_SECRET
     if (!process.env.JWT_SECRET) {
       console.error('❌ JWT_SECRET is not defined');
       return res.status(500).json({ message: 'Server configuration error: JWT_SECRET is not set' });
     }
 
-    // Check email credentials
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
       console.error('❌ Email credentials are not defined');
       return res.status(500).json({ message: 'Server configuration error: Email credentials are not set' });
@@ -393,7 +382,6 @@ app.post('/api/excel-data', async (req, res) => {
   }
 
   try {
-    // Update the event with new fileData, overwriting the old one
     const event = await Event.findOneAndUpdate(
       { id: eventId },
       { $set: { fileData, timestamp } },
@@ -414,7 +402,7 @@ app.post('/api/excel-data', async (req, res) => {
 
 // Verify ID
 app.post('/api/verify-id/:eventId', async (req, res) => {
-  console.log('📥 ID verification request for event:', req.params.eventId, ' Cause I am ID:', req.body.id);
+  console.log('📥 ID verification request for event:', req.params.eventId, 'ID:', req.body.id);
 
   const { id } = req.body;
   const eventId = req.params.eventId;
@@ -440,7 +428,11 @@ app.post('/api/verify-id/:eventId', async (req, res) => {
       return res.status(200).json({ message: 'ID not found in second column of Excel data', verified: false });
     }
 
-    res.status(200).json({ verified: true, rowData });
+    // Check if voter has already voted
+    const existingVote = await Vote.findOne({ eventId, voterId: id });
+    const hasVoted = !!existingVote;
+
+    res.status(200).json({ verified: true, rowData, hasVoted });
   } catch (error) {
     console.error('❌ Error verifying ID:', error);
     res.status(500).json({ message: 'Failed to verify ID', error: error.message });
@@ -550,12 +542,26 @@ app.post('/api/events', upload.array('images', 10), async (req, res) => {
       return res.status(400).json({ message: 'selectedData must be a non-empty array' });
     }
 
-    const imagePaths = req.files && req.files.length > 0
-      ? req.files.map((file, index) => ({
-          candidateIndex: parsedCandidateImages[index]?.candidateIndex ?? index,
-          imagePath: file.path,
-        }))
-      : parsedCandidateImages;
+    // Validate candidateImages and files
+    console.log('🔍 Parsed candidateImages:', parsedCandidateImages);
+    console.log('🔍 Uploaded files:', req.files ? req.files.map(f => f.path) : []);
+
+    if (parsedCandidateImages.length > 0 && (!req.files || req.files.length !== parsedCandidateImages.length)) {
+      console.error('❌ Mismatch between candidateImages and uploaded files');
+      return res.status(400).json({
+        message: `Expected ${parsedCandidateImages.length} image files, but received ${req.files ? req.files.length : 0}`,
+      });
+    }
+
+    // Map images to candidate indices
+    const imagePaths = parsedCandidateImages.map((img, index) => ({
+      candidateIndex: img.candidateIndex,
+      imagePath: req.files && req.files[index]
+        ? path.join('Uploads', path.basename(req.files[index].path)).replace(/\\/g, '/')
+        : img.imagePath || '',
+    }));
+
+    console.log('🔍 Final imagePaths to save:', imagePaths);
 
     const event = new Event({
       id,
@@ -636,24 +642,43 @@ app.put('/api/events/:id', upload.array('images', 10), async (req, res) => {
       return res.status(400).json({ message: 'selectedData must be a non-empty array' });
     }
 
-    const imagePaths = req.files && req.files.length > 0
-      ? req.files.map((file, index) => ({
-          candidateIndex: parsedCandidateImages[index]?.candidateIndex ?? index,
-          imagePath: file.path,
-        }))
-      : parsedCandidateImages;
+    // Validate candidateImages and files
+    console.log('🔍 Parsed candidateImages:', parsedCandidateImages);
+    console.log('🔍 Uploaded files:', req.files ? req.files.map(f => f.path) : []);
+
+    if (parsedCandidateImages.length > 0 && (!req.files || req.files.length !== parsedCandidateImages.length)) {
+      console.error('❌ Mismatch between candidateImages and uploaded files');
+      return res.status(400).json({
+        message: `Expected ${parsedCandidateImages.length} image files, but received ${req.files ? req.files.length : 0}`,
+      });
+    }
+
+    // Map images to candidate indices
+    const imagePaths = parsedCandidateImages.map((img, index) => ({
+      candidateIndex: img.candidateIndex,
+      imagePath: req.files && req.files[index]
+        ? path.join('Uploads', path.basename(req.files[index].path)).replace(/\\/g, '/')
+        : img.imagePath || '',
+    }));
+
+    console.log('🔍 Final imagePaths to save:', imagePaths);
 
     // Delete old images
     const existingEvent = await Event.findOne({ id: req.params.id });
     if (existingEvent && existingEvent.candidateImages) {
-      existingEvent.candidateImages.forEach((image) => {
+      for (const image of existingEvent.candidateImages) {
         if (image.imagePath && fs.existsSync(image.imagePath)) {
-          fs.unlinkSync(image.imagePath);
+          try {
+            fs.unlinkSync(image.imagePath);
+            console.log(`🗑️ Deleted old image: ${image.imagePath}`);
+          } catch (err) {
+            console.error(`❌ Error deleting old image ${image.imagePath}:`, err);
+          }
         }
-      });
+      }
     }
 
-    // Update event with new fileData, overwriting the old one
+    // Update event
     const event = await Event.findOneAndUpdate(
       { id: req.params.id },
       {
@@ -663,7 +688,7 @@ app.put('/api/events/:id', upload.array('images', 10), async (req, res) => {
         name,
         description,
         selectedData: parsedSelectedData,
-        fileData: parsedFileData, // Overwrite old fileData
+        fileData: parsedFileData,
         candidateImages: imagePaths,
         expiry: Number(expiry),
         link,
@@ -698,14 +723,18 @@ app.delete('/api/events/:id', async (req, res) => {
 
     // Delete associated images
     if (event.candidateImages) {
-      event.candidateImages.forEach((image) => {
+      for (const image of event.candidateImages) {
         if (image.imagePath && fs.existsSync(image.imagePath)) {
-          fs.unlinkSync(image.imagePath);
+          try {
+            fs.unlinkSync(image.imagePath);
+            console.log(`🗑️ Deleted image: ${image.imagePath}`);
+          } catch (err) {
+            console.error(`❌ Error deleting image ${image.imagePath}:`, err);
+          }
         }
-      });
+      }
     }
 
-    // Note: fileData is removed automatically as the entire event document is deleted
     console.log('✅ Event and associated fileData deleted successfully:', event);
     res.status(200).json({ message: 'Event deleted successfully' });
   } catch (error) {

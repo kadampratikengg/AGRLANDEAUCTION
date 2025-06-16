@@ -188,13 +188,9 @@
   border-color: #2E7D32; /* Dark green */
 }
 
+
 .already-voted-message {
   color: red;
   font-weight: bold;
-  font-size: 1.2em;
-  margin-top: 1em;
-  padding: 10px;
-  border: 1px solid red;
-  border-radius: 5px;
-  text-align: center;
+  margin-top: 10px;
 }
