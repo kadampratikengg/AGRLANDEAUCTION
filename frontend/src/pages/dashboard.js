@@ -68,7 +68,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   };
 
   // Handle Delete Event
-  const handleDelete = async (eventId) => {
+  const handleDeleteEvent = async (eventId) => {
     if (window.confirm('Are you sure you want to delete this event?')) {
       try {
         const response = await fetch(`${process.env.REACT_APP_API_URL}/api/events/${eventId}`, {
@@ -91,7 +91,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   };
 
   // Navigate to Results page
-  const handleResult = (eventId) => {
+  const handleViewResults = (eventId) => {
     navigate(`/results/${eventId}`);
   };
 
@@ -204,33 +204,34 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                         <p><strong>Date:</strong> {event.date}</p>
                         <p><strong>Description:</strong> {event.description}</p>
                       </div>
-                      <div className="event-actions">
-                        <button
-                          className="result-btn"
-                          onClick={() => handleResult(event.id)}
-                          style={{
-                            background: '#2196F3',
-                            color: 'white',
-                            padding: '5px 10px',
-                            border: 'none',
-                            borderRadius: '5px',
-                          }}
-                        >
-                          Result
-                        </button>
-                        <button
-                          className="delete-btn"
-                          onClick={() => handleDelete(event.id)}
-                          style={{
-                            background: '#ff4d4d',
-                            color: 'white',
-                            padding: '5px 10px',
-                            border: 'none',
-                            borderRadius: '5px',
-                          }}
-                        >
-                          Delete
-                        </button>
+                      <div className="event-actions" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                      <button
+                        className="delete-btn"
+                        onClick={() => handleDeleteEvent(event.id)}
+                        title="Delete Event"
+                        style={{
+                          background: '#ff4d4d',
+                          color: 'white',
+                          padding: '5px 10px',
+                          border: 'none',
+                          borderRadius: '5px',
+                        }}
+                      >
+                        Delete
+                      </button>
+
+                      <button
+                        onClick={() => handleViewResults(event.id)}
+                        style={{
+                          background: '#2196F3',
+                          color: 'white',
+                          padding: '5px 10px',
+                          border: 'none',
+                          borderRadius: '5px',
+                        }}
+                      >
+                        Results
+                      </button>
                       </div>
                     </li>
                   ))}
@@ -238,7 +239,52 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
               )}
             </div>
             <div className="grid-item">
-              <h2>Column 2</h2>
+              <h2>All Events</h2>
+              {error && <p className="error">{error}</p>}
+              {events.length === 0 && !error ? (
+                <p>No active events found.</p>
+              ) : (
+                <ul className="event-list">
+                  {events.map((event) => (
+                    <li key={event.id} className="event-item">
+                      <div className="event-details">
+                        <h3>{event.name}</h3>
+                        <p><strong>Date:</strong> {event.date}</p>
+                        <p><strong>Description:</strong> {event.description}</p>
+                      </div>
+                      <div className="event-actions" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                      <button
+                        className="delete-btn"
+                        onClick={() => handleDeleteEvent(event.id)}
+                        title="Delete Event"
+                        style={{
+                          background: '#ff4d4d',
+                          color: 'white',
+                          padding: '5px 10px',
+                          border: 'none',
+                          borderRadius: '5px',
+                        }}
+                      >
+                        Delete
+                      </button>
+
+                      <button
+                        onClick={() => handleViewResults(event.id)}
+                        style={{
+                          background: '#2196F3',
+                          color: 'white',
+                          padding: '5px 10px',
+                          border: 'none',
+                          borderRadius: '5px',
+                        }}
+                      >
+                        Results
+                      </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         </div>

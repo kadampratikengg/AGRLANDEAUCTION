@@ -182,15 +182,28 @@ app.get('/', (req, res) => {
 });
 
 // Fetch all active events
+// app.get('/api/events', async (req, res) => {
+//   console.log('📥 Fetching all active events');
+//   try {
+//     const currentTime = Date.now();
+//     const events = await Event.find({ expiry: { $gt: currentTime } });
+//     res.status(200).json(events);
+//   } catch (error) {
+//     console.error('❌ Error fetching events:', error);
+//     res.status(500).json({ message: 'Failed to fetch events', error: error.message });
+//   }
+// });
+
+// Fetch all events
+
 app.get('/api/events', async (req, res) => {
-  console.log('📥 Fetching all active events');
+console.log('📥 Fetching all events');
   try {
-    const currentTime = Date.now();
-    const events = await Event.find({ expiry: { $gt: currentTime } });
+    const events = await Event.find(); // No expiry filter
     res.status(200).json(events);
   } catch (error) {
-    console.error('❌ Error fetching events:', error);
-    res.status(500).json({ message: 'Failed to fetch events', error: error.message });
+    console.error('❌ Error fetching all events:', error);
+    res.status(500).json({ message: 'Failed to fetch all events', error: error.message });
   }
 });
 
