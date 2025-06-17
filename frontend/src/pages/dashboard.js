@@ -13,143 +13,176 @@ import { useNavigate } from 'react-router-dom';
 const Dashboard = ({ setIsAuthenticated, name }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSidebarMinimized, setIsSidebarMinimized] = useState(true);
-  const [events, setEvents] = useState([]); // State to store events
-  const [error, setError] = useState(null); // State for error handling
+  const [activeEvents, setActiveEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  // Fetch all active events on component mount
+  // Log environment variable for debugging
+  console.log('REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
+
+  // Fetch active events from backend
   useEffect(() => {
-    const fetchEvents = async () => {
+    const fetchActiveEvents = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/events`, {
+        const apiUrl = process.env.REACT_APP_API_URL;
+        const response = await fetch(`${apiUrl}/api/events`, {
+          method: 'GET',
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`, // Include JWT token
             'Content-Type': 'application/json',
           },
         });
         if (!response.ok) {
           throw new Error('Failed to fetch events');
         }
-        const data = await response.json();
-        setEvents(data);
+        const events = await response.json();
+        setActiveEvents(events);
       } catch (err) {
-        setError(err.message);
+        setError('Failed to load events. Please try again later.');
+        console.error('Error fetching events:', err);
+      } finally {
+        setLoading(false);
       }
     };
-    fetchEvents();
+
+    fetchActiveEvents();
+    const interval = setInterval(fetchActiveEvents, 60000);
+    return () => clearInterval(interval);
   }, []);
 
-  // Toggle the dropdown visibility
-  const toggleDropdown = () => {
-    setIsDropdownOpen((prevState) => !prevState);
-  };
-
-  // Handle Logout
-  const handleLogout = () => {
-    localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('token'); // Remove token on logout
-    setIsAuthenticated(false);
-    navigate('/');
-  };
-
-  // Navigate to Profile page
-  const handleProfile = () => {
-    navigate('/profile');
-  };
-
-  // Navigate to Settings page
-  const handleSettings = () => {
-    navigate('/settings');
-  };
-
-  // Toggle sidebar minimize state
-  const toggleSidebar = () => {
-    setIsSidebarMinimized((prevState) => !prevState);
-  };
-
-  // Handle Delete Event
-  const handleDeleteEvent = async (eventId) => {
-    if (window.confirm('Are you sure you want to delete this event?')) {
-      try {
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/events/${eventId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        if (!response.ok) {
-          throw new Error('Failed to delete event');
-        }
-        // Remove the deleted event from the state
-        setEvents(events.filter((event) => event.id !== eventId));
-        alert('Event deleted successfully');
-      } catch (err) {
-        setError(err.message);
-      }
-    }
-  };
-
-  // Navigate to Results page
   const handleViewResults = (eventId) => {
     navigate(`/results/${eventId}`);
   };
 
+  const toggleDropdown = () => {
+    setIsDropdownOpen((prevState) => !prevState);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('isAuthenticated');
+    setIsAuthenticated(false);
+    navigate('/');
+  };
+
+  const handleProfile = () => {
+    navigate('/profile');
+  };
+
+  const handleSettings = () => {
+    navigate('/settings');
+  };
+
+  const toggleSidebar = () => {
+    setIsSidebarMinimized((prevState) => !prevState);
+  };
+
+  const handleDeleteEvent = async (id) => {
+    try {
+      const apiUrl = process.env.REACT_APP_API_URL;
+      const response = await fetch(`${apiUrl}/api/events/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete event');
+      }
+
+      setActiveEvents((prevEvents) => prevEvents.filter((event) => event.id !== id));
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      alert(error.message || 'There was an error deleting the event. Please try again.');
+    }
+  };
+
+  // Reusable function to render events
+  const renderEvents = (events, sectionTitle) => {
+    if (loading) {
+      return <p>Loading events...</p>;
+    }
+    if (error) {
+      return <p>{error}</p>;
+    }
+    if (events.length === 0) {
+      return <p>No {sectionTitle.toLowerCase()} available.</p>;
+    }
+    return events.map((event) => (
+      <div key={event.id} className="current-event">
+        <h4>{event.name}</h4>
+        <p>{event.description}</p>
+        <p>Date: {event.date}</p>
+        <p>Start: {event.startTime} - Stop: {event.stopTime}</p>
+        <a href={event.link} target="_blank" rel="noopener noreferrer">{event.link}</a>
+        <div className="event-actions" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+          <button
+            className="delete-btn"
+            onClick={() => handleDeleteEvent(event.id)}
+            title="Delete Event"
+            style={{
+              background: '#ff4d4d',
+              color: 'white',
+              padding: '5px 10px',
+              border: 'none',
+              borderRadius: '5px',
+            }}
+          >
+            Delete
+          </button>
+          <button
+            onClick={() => handleViewResults(event.id)}
+            style={{
+              background: '#2196F3',
+              color: 'white',
+              padding: '5px 10px',
+              border: 'none',
+              borderRadius: '5px',
+            }}
+          >
+            Results
+          </button>
+        </div>
+      </div>
+    ));
+  };
+
+  // Filter today's events
+  const today = new Date().toISOString().split('T')[0]; // e.g., '2025-06-17'
+  const todayEvents = activeEvents.filter((event) => event.date === today);
+
   return (
     <div className='dashboard'>
-      {/* Sidebar */}
       <div className={`sidebar ${isSidebarMinimized ? 'minimized' : ''}`}>
         <button className='minimize-btn' onClick={toggleSidebar}>
           {isSidebarMinimized ? <FaChevronRight /> : <FaChevronLeft />}
         </button>
-
-        {isSidebarMinimized ? (
-          <div className='sidebar-logo'>
-            <ul>
-              <li>
-                <button onClick={() => navigate('/dashboard')}>
-                  <FaTachometerAlt size={20} />
-                  {!isSidebarMinimized && 'Dashboard'}
-                </button>
-              </li>
-              <li>
-                <button onClick={() => navigate('/manage')}>
-                  <FaCogs size={20} />
-                  {!isSidebarMinimized && 'Manage Auctions'}
-                </button>
-              </li>
-              <li>
-                <button onClick={() => navigate('/bids')}>
-                  <FaGavel size={20} />
-                  {!isSidebarMinimized && 'Bids'}
-                </button>
-              </li>
-            </ul>
-          </div>
-        ) : (
-          <ul>
-            <li>
-              <button onClick={() => navigate('/dashboard')}>
-                {!isSidebarMinimized && 'Dashboard'}
-              </button>
-            </li>
-            <li>
-              <button onClick={() => navigate('/manage')}>
-                {!isSidebarMinimized && 'Manage Auctions'}
-              </button>
-            </li>
-            <li>
-              <button onClick={() => navigate('/bids')}>
-                {!isSidebarMinimized && 'Bids'}
-              </button>
-            </li>
-          </ul>
-        )}
+        <ul>
+          <li>
+            <button onClick={() => navigate('/dashboard')}>
+              <FaTachometerAlt size={20} />
+              {!isSidebarMinimized && 'Dashboard'}
+            </button>
+          </li>
+          <li>
+            <button onClick={() => navigate('/manage')}>
+              <FaCogs size={20} />
+              {!isSidebarMinimized && 'Manage Auctions'}
+            </button>
+          </li>
+          <li>
+            <button onClick={() => navigate('/bids')}>
+              <FaGavel size={20} />
+              {!isSidebarMinimized && 'Bids'}
+            </button>
+          </li>
+        </ul>
       </div>
 
-      {/* Main Content Area */}
       <div className='content'>
-        {/* Navbar */}
         <div className='navbar'>
           <h1>A M</h1>
           <nav>
@@ -161,21 +194,9 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                 {isDropdownOpen && (
                   <div className='dropdown'>
                     <ul>
-                      <li>
-                        <button className='dropdown-item' onClick={handleProfile}>
-                          Profile
-                        </button>
-                      </li>
-                      <li>
-                        <button className='dropdown-item' onClick={handleSettings}>
-                          Settings
-                        </button>
-                      </li>
-                      <li>
-                        <button className='dropdown-item' onClick={handleLogout}>
-                          Log Out
-                        </button>
-                      </li>
+                      <li><button onClick={handleProfile}>Profile</button></li>
+                      <li><button onClick={handleSettings}>Settings</button></li>
+                      <li><button onClick={handleLogout}>Log Out</button></li>
                     </ul>
                   </div>
                 )}
@@ -184,107 +205,16 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
           </nav>
         </div>
 
-        {/* Content Section */}
         <div className='main-content'>
-          <h1>Dashboard</h1>
-
-          {/* New 2 columns layout */}
-          <div className="grid-container">
-            <div className="grid-item">
-              <h2>Events</h2>
-              {error && <p className="error">{error}</p>}
-              {events.length === 0 && !error ? (
-                <p>No active events found.</p>
-              ) : (
-                <ul className="event-list">
-                  {events.map((event) => (
-                    <li key={event.id} className="event-item">
-                      <div className="event-details">
-                        <h3>{event.name}</h3>
-                        <p><strong>Date:</strong> {event.date}</p>
-                        <p><strong>Description:</strong> {event.description}</p>
-                      </div>
-                      <div className="event-actions" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                      <button
-                        className="delete-btn"
-                        onClick={() => handleDeleteEvent(event.id)}
-                        title="Delete Event"
-                        style={{
-                          background: '#ff4d4d',
-                          color: 'white',
-                          padding: '5px 10px',
-                          border: 'none',
-                          borderRadius: '5px',
-                        }}
-                      >
-                        Delete
-                      </button>
-
-                      <button
-                        onClick={() => handleViewResults(event.id)}
-                        style={{
-                          background: '#2196F3',
-                          color: 'white',
-                          padding: '5px 10px',
-                          border: 'none',
-                          borderRadius: '5px',
-                        }}
-                      >
-                        Results
-                      </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
+          <h2>Welcome to the Dashboard</h2>
+          <div className="sections-container">
+            <div className="current-section">
+              <h3>Today Events</h3>
+              {renderEvents(todayEvents, 'events today')}
             </div>
-            <div className="grid-item">
-              <h2>All Events</h2>
-              {error && <p className="error">{error}</p>}
-              {events.length === 0 && !error ? (
-                <p>No active events found.</p>
-              ) : (
-                <ul className="event-list">
-                  {events.map((event) => (
-                    <li key={event.id} className="event-item">
-                      <div className="event-details">
-                        <h3>{event.name}</h3>
-                        <p><strong>Date:</strong> {event.date}</p>
-                        <p><strong>Description:</strong> {event.description}</p>
-                      </div>
-                      <div className="event-actions" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                      <button
-                        className="delete-btn"
-                        onClick={() => handleDeleteEvent(event.id)}
-                        title="Delete Event"
-                        style={{
-                          background: '#ff4d4d',
-                          color: 'white',
-                          padding: '5px 10px',
-                          border: 'none',
-                          borderRadius: '5px',
-                        }}
-                      >
-                        Delete
-                      </button>
-
-                      <button
-                        onClick={() => handleViewResults(event.id)}
-                        style={{
-                          background: '#2196F3',
-                          color: 'white',
-                          padding: '5px 10px',
-                          border: 'none',
-                          borderRadius: '5px',
-                        }}
-                      >
-                        Results
-                      </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
+            <div className="current-section">
+              <h3>All Events</h3>
+              {renderEvents(activeEvents, 'events')}
             </div>
           </div>
         </div>

@@ -442,7 +442,7 @@ li><button onClick={handleProfile}>Profile</button></li>
           <h2>Welcome to the Manage</h2>
           <div className="sections-container">
             <div className="current-section">
-              <h3>Upcoming Events</h3>
+              <h3>All Events</h3>
               {loading ? (
                 <p>Loading events...</p>
               ) : error ? (
