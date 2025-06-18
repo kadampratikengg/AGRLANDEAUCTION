@@ -28,10 +28,12 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       setError(null);
       try {
         const apiUrl = process.env.REACT_APP_API_URL;
+        const token = localStorage.getItem('token'); // Get JWT token
         const response = await fetch(`${apiUrl}/api/events`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
           },
         });
         if (!response.ok) {
@@ -62,6 +64,8 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
   const handleLogout = () => {
     localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('token');
+    localStorage.removeItem('userId');
     setIsAuthenticated(false);
     navigate('/');
   };
@@ -81,10 +85,12 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const handleDeleteEvent = async (id) => {
     try {
       const apiUrl = process.env.REACT_APP_API_URL;
+      const token = localStorage.getItem('token');
       const response = await fetch(`${apiUrl}/api/events/${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       });
 

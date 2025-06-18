@@ -139,10 +139,12 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       setError(null);
       try {
         const apiUrl = process.env.REACT_APP_API_URL;
+        const token = localStorage.getItem('token');
         const response = await fetch(`${apiUrl}/api/events`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
           },
         });
         if (!response.ok) {
@@ -166,7 +168,13 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const handleEditEvent = async (eventId) => {
     try {
       const apiUrl = process.env.REACT_APP_API_URL;
-      const response = await fetch(`${apiUrl}/api/events/${eventId}`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${apiUrl}/api/events/${eventId}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
       if (!response.ok) throw new Error('Failed to fetch event');
       const eventToEdit = await response.json();
       
@@ -216,6 +224,8 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
   const handleLogout = () => {
     localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('token');
+    localStorage.removeItem('userId');
     setIsAuthenticated(false);
     navigate('/');
   };
@@ -277,10 +287,12 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const handleDeleteEvent = async (id) => {
     try {
       const apiUrl = process.env.REACT_APP_API_URL;
+      const token = localStorage.getItem('token');
       const response = await fetch(`${apiUrl}/api/events/${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -337,6 +349,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     try {
       const isEditing = !!editingEventId;
       const apiUrl = process.env.REACT_APP_API_URL;
+      const token = localStorage.getItem('token');
       const url = isEditing
         ? `${apiUrl}/api/events/${editingEventId}`
         : `${apiUrl}/api/events`;
@@ -344,6 +357,9 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
       const response = await fetch(url, {
         method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
         body: formData,
       });
 
@@ -425,9 +441,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                 {isDropdownOpen && (
                   <div className='dropdown'>
                     <ul>
-                      <
-
-li><button onClick={handleProfile}>Profile</button></li>
+                      <li><button onClick={handleProfile}>Profile</button></li>
                       <li><button onClick={handleSettings}>Settings</button></li>
                       <li><button onClick={handleLogout}>Log Out</button></li>
                     </ul>

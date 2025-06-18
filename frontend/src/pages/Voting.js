@@ -8,10 +8,9 @@ const Voting = () => {
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [votingStarted, setVotingStarted] = useState(false);
   const [canStartVoting, setCanStartVoting] = useState(false);
 
-  // Define checkVotingTime first
+  // Check if voting is within the allowed time window
   const checkVotingTime = useCallback((eventData) => {
     if (eventData.date && eventData.startTime && eventData.stopTime) {
       const [startHours, startMinutes] = eventData.startTime.split(':');
@@ -23,7 +22,7 @@ const Voting = () => {
     }
   }, []);
 
-  // Then define fetchEvent
+  // Fetch event data from backend or cache
   const fetchEvent = useCallback(async (bypassCache = false) => {
     try {
       if (!bypassCache) {
@@ -32,15 +31,17 @@ const Voting = () => {
         if (localEvent && localEvent.expiry > now) {
           console.log('Using cached event data');
           setEvent(localEvent);
-          checkVotingTime(localEvent); // No warning now
+          checkVotingTime(localEvent);
           return;
         }
       }
 
       console.log('Fetching event from backend:', eventId);
+      const token = localStorage.getItem('token');
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/events/${eventId}`, {
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -66,19 +67,19 @@ const Voting = () => {
 
   useEffect(() => {
     fetchEvent(true);
-    const intervalId = setInterval(() => fetchEvent(true), 5 * 1000);
-    return () => clearInterval(intervalId);
-  }, [eventId, fetchEvent]);
+    const interval = setInterval(() => fetchEvent(true), 60000); // Refresh every minute
+    return () => clearInterval(interval); // Cleanup interval on unmount
+  }, [fetchEvent]);
 
-  const handleStartVoting = () => {
-    console.log('Voting started at:', new Date().toLocaleTimeString());
-    setVotingStarted(true);
-    navigate(`/voting/${eventId}/start`);
-  };
+  // Render loading, error, or no event states
+  if (loading) return <div className="voting-container">Loading...</div>;
+  if (error) return <div className="voting-container">Error: {error}</div>;
+  if (!event) return <div className="voting-container">Event not found</div>;
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error}</div>;
-  if (!event) return <div>Event not found</div>;
+  // Get unique keys for table headers from selectedData
+  const headers = event.selectedData && event.selectedData.length > 0
+    ? Object.keys(event.selectedData[0])
+    : [];
 
   return (
     <div className="voting-container">
@@ -87,55 +88,55 @@ const Voting = () => {
       <p><strong>Date:</strong> {event.date}</p>
       <p><strong>Time:</strong> {event.startTime} - {event.stopTime}</p>
 
-      <h2>Uploaded File Data</h2>
-      <p>
-        Note: Full file data is not available unless stored by the backend. Displaying selected candidate data below.
-      </p>
-
-      <h2>Selected Candidates</h2>
-      {event.selectedData && event.selectedData.length > 0 ? (
-        <table>
-          <thead>
-            <tr>
-              {Object.keys(event.selectedData[0]).map((key) => (
-                <th key={key}>{key}</th>
-              ))}
-              <th>Image</th>
-            </tr>
-          </thead>
-          <tbody>
-            {event.selectedData.map((data, index) => (
-              <tr key={index}>
-                {Object.values(data).map((value, i) => (
-                  <td key={i}>{value}</td>
+      {/* Candidate Data Table */}
+      <div className="candidate-table-container">
+        <h2>Candidates</h2>
+        {event.selectedData && event.selectedData.length > 0 ? (
+          <table className="candidate-table">
+            <thead>
+              <tr>
+                {headers.map((header) => (
+                  <th key={header}>{header}</th>
                 ))}
-                <td>
-                  {event.candidateImages && event.candidateImages[index] ? (
-                    <img
-                      src={event.candidateImages[index].dataUrl}
-                      alt={`Candidate ${index + 1}`}
-                      style={{ maxWidth: '100px', height: 'auto' }}
-                    />
-                  ) : (
-                    'No image'
-                  )}
-                </td>
+                <th>Image</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p>No Candidates Selected.</p>
-      )}
+            </thead>
+            <tbody>
+              {event.selectedData.map((candidate, index) => {
+                const image = event.candidateImages?.find(
+                  (img) => img.candidateIndex === index
+                );
+                return (
+                  <tr key={index}>
+                    {headers.map((header) => (
+                      <td key={header}>{candidate[header]}</td>
+                    ))}
+                    <td>
+                      {image ? (
+                        <img
+                          src={`${process.env.REACT_APP_API_URL}${image.imagePath}`}
+                          alt={`Candidate ${index + 1}`}
+                          className="candidate-image"
+                        />
+                      ) : (
+                        <span className="no-image">No image</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <p>No candidates available for this event.</p>
+        )}
+      </div>
 
-      {!votingStarted && canStartVoting ? (
-        <button onClick={handleStartVoting} className="start-button">
-          Start Voting
-        </button>
-      ) : votingStarted ? (
-        <p className="started-text">Voting Has Started!</p>
+      {/* Voting Action */}
+      {canStartVoting ? (
+        <button onClick={() => navigate(`/voting/${eventId}/start`)}>Start Voting</button>
       ) : (
-        <p className="not-started-text">Voting Not Yet Available</p>
+        <p>Voting is not available at this time.</p>
       )}
     </div>
   );

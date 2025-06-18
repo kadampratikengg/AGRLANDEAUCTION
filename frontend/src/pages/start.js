@@ -4,6 +4,7 @@ import './start.css';
 
 const Start = () => {
   const { eventId } = useParams();
+
   const [idInput, setIdInput] = useState('');
   const [verificationResult, setVerificationResult] = useState(null);
   const [error, setError] = useState('');
@@ -17,7 +18,13 @@ const Start = () => {
 
   const fetchEventData = async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/events/${eventId}`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/events/${eventId}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch event data');
       }
@@ -131,6 +138,8 @@ const Start = () => {
 
   return (
     <div className="voting-start-container">
+      
+
       {showVoterDetails && (
         <>
           <div className="id-verification">
@@ -216,9 +225,9 @@ const Start = () => {
                       ))}
                     </div>
                     <div className="candidate-image-container">
-                      {eventData.candidateImages && eventData.candidateImages[index] ? (
+                      {eventData.candidateImages?.find(img => img.candidateIndex === index) ? (
                         <img
-                          src={`${process.env.REACT_APP_API_URL}/Uploads/${eventData.candidateImages[index].imagePath.split(/[\\/]/).pop()}`}
+                          src={`${process.env.REACT_APP_API_URL}${eventData.candidateImages.find(img => img.candidateIndex === index).imagePath}`}
                           alt={`Candidate ${index + 1}`}
                           className="candidate-image-large"
                         />

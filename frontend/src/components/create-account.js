@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { useNavigate } from 'react-router-dom';
 
 const CreateAccountPage = () => {
   const [email, setEmail] = useState('');
@@ -11,7 +11,7 @@ const CreateAccountPage = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const navigate = useNavigate(); // Initialize useNavigate
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -45,8 +45,12 @@ const CreateAccountPage = () => {
       );
 
       if (response.data.message === 'Account created successfully') {
+        // Store token and userId in localStorage
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('userId', response.data.userId);
+        localStorage.setItem('isAuthenticated', 'true');
         alert('Account created successfully!');
-        navigate('/'); // Redirect to LoginPage
+        navigate('/');
       }
     } catch (error) {
       if (error.response) {

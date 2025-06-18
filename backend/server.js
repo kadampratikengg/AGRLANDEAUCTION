@@ -34,6 +34,25 @@ app.options('*', cors(corsOptions));
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
 
+// JWT Authentication Middleware
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer <token>
+  if (!token) {
+    console.log('❌ No token provided');
+    return res.status(401).json({ message: 'Authentication token required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded; // Attach user info (userId) to request
+    next();
+  } catch (error) {
+    console.error('❌ Invalid token:', error);
+    return res.status(403).json({ message: 'Invalid or expired token' });
+  }
+};
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
@@ -137,6 +156,7 @@ const Event = mongoose.model(
   'Event',
   new mongoose.Schema({
     id: { type: String, required: true },
+    userId: { type: String, required: true }, // Added userId field
     date: { type: String, required: true },
     startTime: { type: String, required: true },
     stopTime: { type: String, required: true },
@@ -186,11 +206,11 @@ app.get('/', (req, res) => {
   res.status(200).json({ message: '✅ Backend is running' });
 });
 
-// Fetch all events
-app.get('/api/events', async (req, res) => {
-  console.log('📥 Fetching all events');
+// Fetch all events for authenticated user
+app.get('/api/events', authenticateToken, async (req, res) => {
+  console.log('📥 Fetching all events for user:', req.user.userId);
   try {
-    const events = await Event.find();
+    const events = await Event.find({ userId: req.user.userId });
     res.status(200).json(events);
   } catch (error) {
     console.error('❌ Error fetching all events:', error);
@@ -199,9 +219,13 @@ app.get('/api/events', async (req, res) => {
 });
 
 // Fetch votes for an event
-app.get('/api/votes/:eventId', async (req, res) => {
-  console.log('📥 Fetching votes for event:', req.params.eventId);
+app.get('/api/votes/:eventId', authenticateToken, async (req, res) => {
+  console.log('📥 Fetching votes for event:', req.params.eventId, 'by user:', req.user.userId);
   try {
+    const event = await Event.findOne({ id: req.params.eventId, userId: req.user.userId });
+    if (!event) {
+      return res.status(403).json({ message: 'Unauthorized or event not found' });
+    }
     const votes = await Vote.find({ eventId: req.params.eventId });
     res.status(200).json(votes);
   } catch (error) {
@@ -228,7 +252,11 @@ app.post('/create-account', async (req, res) => {
     const newUser = new User({ email, password: hashedPassword });
     await newUser.save();
 
-    res.status(201).json({ message: 'Account created successfully' });
+    const token = jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, {
+      expiresIn: '2h',
+    });
+
+    res.status(201).json({ message: 'Account created successfully', token, userId: newUser._id });
   } catch (error) {
     console.error('❌ Error creating account:', error);
     res.status(500).json({ message: 'Server error during account creation' });
@@ -269,7 +297,7 @@ app.post('/login', async (req, res) => {
     });
 
     console.log('✅ Login successful for email:', email);
-    res.status(200).json({ message: 'Login successful', token });
+    res.status(200).json({ message: 'Login successful', token, userId: user._id });
   } catch (error) {
     console.error('❌ Login error:', error.stack);
     res.status(500).json({ message: 'Login failed', error: error.message });
@@ -372,7 +400,7 @@ app.post('/submit-order', async (req, res) => {
 });
 
 // Store Excel Data in Event
-app.post('/api/excel-data', async (req, res) => {
+app.post('/api/excel-data', authenticateToken, async (req, res) => {
   console.log('📥 Excel data submission received:', req.body);
 
   const { eventId, fileData, timestamp } = req.body;
@@ -383,13 +411,13 @@ app.post('/api/excel-data', async (req, res) => {
 
   try {
     const event = await Event.findOneAndUpdate(
-      { id: eventId },
+      { id: eventId, userId: req.user.userId },
       { $set: { fileData, timestamp } },
       { new: true }
     );
 
     if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
+      return res.status(404).json({ message: 'Event not found or unauthorized' });
     }
 
     console.log('✅ Excel data updated for event:', event);
@@ -442,7 +470,6 @@ app.post('/api/verify-id/:eventId', async (req, res) => {
 // Submit Vote
 app.post('/api/vote/:eventId', async (req, res) => {
   console.log('📥 Vote submission for event:', req.params.eventId, 'Data:', req.body);
-
   const { voterId, candidate } = req.body;
   const eventId = req.params.eventId;
 
@@ -473,13 +500,13 @@ app.post('/api/vote/:eventId', async (req, res) => {
 });
 
 // Get Event
-app.get('/api/events/:id', async (req, res) => {
-  console.log('📥 Event fetch request for ID:', req.params.id);
+app.get('/api/events/:id', authenticateToken, async (req, res) => {
+  console.log('📥 Event fetch request for ID:', req.params.id, 'by user:', req.user.userId);
 
   try {
-    const event = await Event.findOne({ id: req.params.id });
+    const event = await Event.findOne({ id: req.params.id, userId: req.user.userId });
     if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
+      return res.status(404).json({ message: 'Event not found or unauthorized' });
     }
 
     res.status(200).json(event);
@@ -490,7 +517,7 @@ app.get('/api/events/:id', async (req, res) => {
 });
 
 // Create Event
-app.post('/api/events', upload.array('images', 10), async (req, res) => {
+app.post('/api/events', authenticateToken, upload.array('images', 10), async (req, res) => {
   console.log('📥 Event submission received:', {
     body: req.body,
     files: req.files ? req.files.map(file => ({ originalname: file.originalname, path: file.path })) : [],
@@ -565,6 +592,7 @@ app.post('/api/events', upload.array('images', 10), async (req, res) => {
 
     const event = new Event({
       id,
+      userId: req.user.userId, // Associate event with user
       date,
       startTime,
       stopTime,
@@ -592,7 +620,7 @@ app.post('/api/events', upload.array('images', 10), async (req, res) => {
 });
 
 // Update Event
-app.put('/api/events/:id', upload.array('images', 10), async (req, res) => {
+app.put('/api/events/:id', authenticateToken, upload.array('images', 10), async (req, res) => {
   console.log('📥 Event update request for ID:', req.params.id, 'Data:', {
     body: req.body,
     files: req.files ? req.files.map(file => ({ originalname: file.originalname, path: file.path })) : [],
@@ -664,8 +692,12 @@ app.put('/api/events/:id', upload.array('images', 10), async (req, res) => {
     console.log('🔍 Final imagePaths to save:', imagePaths);
 
     // Delete old images
-    const existingEvent = await Event.findOne({ id: req.params.id });
-    if (existingEvent && existingEvent.candidateImages) {
+    const existingEvent = await Event.findOne({ id: req.params.id, userId: req.user.userId });
+    if (!existingEvent) {
+      console.error('❌ Event not found or unauthorized for ID:', req.params.id);
+      return res.status(404).json({ message: 'Event not found or unauthorized' });
+    }
+    if (existingEvent.candidateImages) {
       for (const image of existingEvent.candidateImages) {
         if (image.imagePath && fs.existsSync(image.imagePath)) {
           try {
@@ -680,7 +712,7 @@ app.put('/api/events/:id', upload.array('images', 10), async (req, res) => {
 
     // Update event
     const event = await Event.findOneAndUpdate(
-      { id: req.params.id },
+      { id: req.params.id, userId: req.user.userId },
       {
         date,
         startTime,
@@ -710,15 +742,15 @@ app.put('/api/events/:id', upload.array('images', 10), async (req, res) => {
 });
 
 // Delete Event
-app.delete('/api/events/:id', async (req, res) => {
-  console.log('📥 Event deletion request for ID:', req.params.id);
+app.delete('/api/events/:id', authenticateToken, async (req, res) => {
+  console.log('📥 Event deletion request for ID:', req.params.id, 'by user:', req.user.userId);
 
   try {
-    const event = await Event.findOneAndDelete({ id: req.params.id });
+    const event = await Event.findOneAndDelete({ id: req.params.id, userId: req.user.userId });
 
     if (!event) {
-      console.error('❌ Event not found for ID:', req.params.id);
-      return res.status(404).json({ message: 'Event not found' });
+      console.error('❌ Event not found or unauthorized for ID:', req.params.id);
+      return res.status(404).json({ message: 'Event not found or unauthorized' });
     }
 
     // Delete associated images
@@ -734,6 +766,10 @@ app.delete('/api/events/:id', async (req, res) => {
         }
       }
     }
+
+    // Delete associated votes
+    await Vote.deleteMany({ eventId: req.params.id });
+    console.log(`🗑️ Deleted votes for event: ${req.params.id}`);
 
     console.log('✅ Event and associated fileData deleted successfully:', event);
     res.status(200).json({ message: 'Event deleted successfully' });

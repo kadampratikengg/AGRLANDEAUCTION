@@ -35,6 +35,10 @@ const LoginPage = ({ onLogin }) => {
       const data = await response.json();
 
       if (response.ok) {
+        // Store token and userId in localStorage
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('userId', data.userId);
+        localStorage.setItem('isAuthenticated', 'true');
         // If login is successful, call onLogin callback
         onLogin();
       } else {

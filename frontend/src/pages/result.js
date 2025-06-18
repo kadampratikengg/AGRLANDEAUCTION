@@ -14,8 +14,14 @@ const Result = () => {
     setLoading(true);
     setError(null);
     try {
-      const eventResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/events/${eventId}`, {
-        headers: { 'Content-Type': 'application/json' },
+      const token = localStorage.getItem('token');
+      const apiUrl = process.env.REACT_APP_API_URL;
+
+      const eventResponse = await fetch(`${apiUrl}/api/events/${eventId}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
       });
 
       if (!eventResponse.ok) {
@@ -26,8 +32,11 @@ const Result = () => {
       const eventData = await eventResponse.json();
       setEvent(eventData);
 
-      const votesResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/votes/${eventId}`, {
-        headers: { 'Content-Type': 'application/json' },
+      const votesResponse = await fetch(`${apiUrl}/api/votes/${eventId}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
       });
 
       if (!votesResponse.ok) {
@@ -43,11 +52,11 @@ const Result = () => {
     } finally {
       setLoading(false);
     }
-  }, [eventId]); // eventId is a dependency of fetchData
+  }, [eventId]);
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]); // Include fetchData as dependency
+  }, [fetchData]);
 
   // Calculate vote counts
   const voteCounts = votes.reduce((acc, vote) => {
@@ -90,7 +99,7 @@ const Result = () => {
                 <td>
                   {candidate.image ? (
                     <img
-                      src={`/Uploads/${candidate.image.split('/').pop()}`}
+                      src={`${process.env.REACT_APP_API_URL}/Uploads/${candidate.image.split('/').pop()}`}
                       alt={`Candidate ${candidate.name}`}
                       style={{ maxWidth: '100px', height: 'auto' }}
                     />
