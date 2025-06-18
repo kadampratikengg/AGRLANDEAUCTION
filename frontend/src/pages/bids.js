@@ -95,8 +95,8 @@ const Dashboard = ({ setIsAuthenticated }) => {
   
     try {
       const apiBaseUrl = process.env.REACT_APP_API_URL;
-      console.log('Submitting contact form to:', `${apiBaseUrl}/submit-contact`); // Debug log
-      const res = await fetch(`${apiBaseUrl}/submit-contact`, {
+      console.log('Submitting contact form to:', `${apiBaseUrl}/api/contact/submit`);
+      const res = await fetch(`${apiBaseUrl}/api/contact/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -137,8 +137,8 @@ const Dashboard = ({ setIsAuthenticated }) => {
   
     try {
       const apiBaseUrl = process.env.REACT_APP_API_URL;
-      console.log('Submitting order form to:', `${apiBaseUrl}/submit-order`); // Debug log
-      const res = await fetch(`${apiBaseUrl}/submit-order`, {
+      console.log('Submitting order form to:', `${apiBaseUrl}/submit`);
+      const res = await fetch(`${apiBaseUrl}/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
