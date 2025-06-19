@@ -8,6 +8,7 @@ const Result = () => {
   const [votes, setVotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isVotingComplete, setIsVotingComplete] = useState(false);
 
   // Fetch event and vote data from backend
   const fetchData = useCallback(async () => {
@@ -31,6 +32,11 @@ const Result = () => {
 
       const eventData = await eventResponse.json();
       setEvent(eventData);
+
+      // Check if voting is complete
+      const stopDateTime = new Date(`${eventData.date}T${eventData.stopTime}`);
+      const currentDateTime = new Date();
+      setIsVotingComplete(currentDateTime >= stopDateTime);
 
       const votesResponse = await fetch(`${apiUrl}/api/votes/${eventId}`, {
         headers: {
@@ -73,6 +79,7 @@ const Result = () => {
   if (loading) return <div className="result-container">Loading...</div>;
   if (error) return <div className="result-container">Error: {error}</div>;
   if (!event) return <div className="result-container">Event not found</div>;
+  if (!isVotingComplete) return <div className="result-container">Voting is still running. Results will be available after {event.stopTime} on {event.date}.</div>;
 
   return (
     <div className="result-container">
