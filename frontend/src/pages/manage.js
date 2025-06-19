@@ -165,7 +165,16 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleEditEvent = async (eventId) => {
+  const handleEditEvent = async (eventId, event) => {
+    // Check if event has started
+    const eventStartTime = new Date(`${event.date}T${event.startTime}`);
+    const currentTime = new Date();
+    
+    if (eventStartTime <= currentTime) {
+      alert('Event has already started and cannot be edited.');
+      return;
+    }
+
     try {
       const apiUrl = process.env.REACT_APP_API_URL;
       const token = localStorage.getItem('token');
@@ -487,7 +496,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                         Delete
                       </button>
                       <button
-                        onClick={() => handleEditEvent(event.id)}
+                        onClick={() => handleEditEvent(event.id, event)}
                         style={{
                           background: '#4CAF50',
                           color: 'white',
