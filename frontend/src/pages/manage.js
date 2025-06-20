@@ -11,6 +11,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { v4 as uuidv4 } from 'uuid';
+import { Widget } from '@uploadcare/react-widget';
 
 const Dashboard = ({ setIsAuthenticated, name }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -35,10 +36,8 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  // Log environment variable for debugging
-  console.log('REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
+  const uploadcarePublicKey = process.env.REACT_APP_UPLOADCARE_PUBLIC_KEY;
 
-  // Reset form after successful event creation or update
   const resetForm = () => {
     setFileName('');
     setFileData([]);
@@ -57,82 +56,25 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     setEventId(null);
   };
 
-  // Resize image to approximately 5KB
-  const resizeImage = (file, callback) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        let quality = 0.7;
-        const targetSize = 5 * 1024;
-
-        const ctx = canvas.getContext('2d');
-
-        const tryResize = () => {
-          canvas.width = width;
-          canvas.height = height;
-          ctx.drawImage(img, 0, 0, width, height);
-          canvas.toBlob(
-            (blob) => {
-              if (blob.size > targetSize && quality > 0.1) {
-                quality -= 0.1;
-                tryResize();
-              } else if (blob.size > targetSize && width > 100) {
-                width *= 0.9;
-                height *= 0.9;
-                tryResize();
-              } else {
-                const resizedFile = new File([blob], file.name, {
-                  type: 'image/jpeg',
-                  lastModified: Date.now(),
-                });
-                const urlReader = new FileReader();
-                urlReader.onload = () => {
-                  callback(urlReader.result, resizedFile);
-                };
-                urlReader.readAsDataURL(resizedFile);
-              }
-            },
-            'image/jpeg',
-            quality
-          );
-        };
-
-        tryResize();
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // Handle image upload for a specific candidate
-  const handleImageUpload = (index, e) => {
-    const file = e.target.files[0];
-    if (file && file.type.startsWith('image/')) {
-      resizeImage(file, (dataUrl, resizedFile) => {
-        setCandidateImages((prev) => ({
-          ...prev,
-          [index]: { dataUrl, file: resizedFile },
-        }));
-      });
+  const handleImageUpload = (index, fileInfo) => {
+    if (fileInfo && fileInfo.uuid && fileInfo.cdnUrl) {
+      setCandidateImages((prevImages) => ({
+        ...prevImages,
+        [index]: { uuid: fileInfo.uuid, cdnUrl: fileInfo.cdnUrl },
+      }));
     } else {
-      alert('Please upload a valid image file.');
+      alert('Failed to upload image. Please try again.');
     }
   };
 
-  // Clear image for a specific candidate
   const handleClearImage = (index) => {
-    setCandidateImages((prev) => {
-      const newImages = { ...prev };
+    setCandidateImages((prevImages) => {
+      const newImages = { ...prevImages };
       delete newImages[index];
       return newImages;
     });
   };
 
-  // Fetch active events from backend
   useEffect(() => {
     const fetchActiveEvents = async () => {
       setLoading(true);
@@ -166,7 +108,6 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   }, []);
 
   const handleEditEvent = async (eventId, event) => {
-    // Check if event has started
     const eventStartTime = new Date(`${event.date}T${event.startTime}`);
     const currentTime = new Date();
     
@@ -211,10 +152,9 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       setEditingEventId(eventId);
       setEventId(eventId);
       
-      // Set existing candidate images
       const images = {};
-      eventToEdit.candidateImages.forEach((img, index) => {
-        images[index] = { dataUrl: `/Uploads/${img.imagePath.split('/').pop()}` };
+      eventToEdit.candidateImages.forEach((img) => {
+        images[img.candidateIndex] = { uuid: img.uuid, cdnUrl: img.cdnUrl };
       });
       setCandidateImages(images);
     } catch (error) {
@@ -251,7 +191,6 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     setIsSidebarMinimized((prevState) => !prevState);
   };
 
-  // Handle file upload
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (file && file.name.endsWith('.xlsx')) {
@@ -264,8 +203,8 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
         setFileData(jsonData);
-        setCheckedRows([]); // Initialize as empty for manual selection
-        setSelectedData([]); // Initialize as empty for manual selection
+        setCheckedRows([]);
+        setSelectedData([]);
       };
       reader.readAsBinaryString(file);
     } else {
@@ -273,7 +212,6 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     }
   };
 
-  // Handle checkbox change
   const handleCheckboxChange = (index) => {
     setCheckedRows((prevCheckedRows) => {
       let updatedCheckedRows;
@@ -282,15 +220,15 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       } else {
         updatedCheckedRows = [...prevCheckedRows, index];
       }
-      // Update selectedData based on the updated checkedRows
       setSelectedData(updatedCheckedRows.map((rowIndex) => fileData[rowIndex]));
       return updatedCheckedRows;
     });
   };
 
   const handleCreateEvent = () => {
+    const newEventId = uuidv4();
     setShowEventForm(true);
-    setEventId(uuidv4());
+    setEventId(newEventId);
   };
 
   const handleDeleteEvent = async (id) => {
@@ -320,19 +258,29 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const handleEventFormSubmit = async (e) => {
     e.preventDefault();
 
-    if (!editingEventId && !eventId) {
-      alert('Event ID is missing. Please try again.');
+    const missingFields = [];
+    if (!eventId && !editingEventId) missingFields.push('eventId');
+    if (!eventDate) missingFields.push('date');
+    if (!startTime) missingFields.push('startTime');
+    if (!stopTime) missingFields.push('stopTime');
+    if (!eventName) missingFields.push('name');
+    if (!eventDescription) missingFields.push('description');
+    if (!selectedData || !Array.isArray(selectedData) || selectedData.length === 0) missingFields.push('selectedData');
+    if (!eventDate || !stopTime || !new Date(`${eventDate}T${stopTime}`).getTime()) missingFields.push('expiry');
+    if (!window.location.origin) missingFields.push('link');
+
+    if (missingFields.length > 0) {
+      alert(`Please fill in all required fields: ${missingFields.join(', ')}`);
       return;
     }
 
-    // Calculate expiry based on event date and stop time
     const expiryTime = new Date(`${eventDate}T${stopTime}`).getTime();
     const currentEventId = editingEventId || eventId;
 
-    // Prepare candidate images array with index mapping
     const serializedCandidateImages = Object.keys(candidateImages).map((index) => ({
       candidateIndex: parseInt(index),
-      imagePath: candidateImages[index].dataUrl || '',
+      uuid: candidateImages[index].uuid,
+      cdnUrl: candidateImages[index].cdnUrl,
     }));
 
     const formData = new FormData();
@@ -343,17 +291,10 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     formData.append('name', eventName);
     formData.append('description', eventDescription);
     formData.append('selectedData', JSON.stringify(selectedData));
-    formData.append('fileData', JSON.stringify(fileData)); // Include fileData
-    formData.append('expiry', expiryTime);
+    formData.append('fileData', JSON.stringify(fileData));
+    formData.append('expiry', expiryTime.toString());
     formData.append('link', `${window.location.origin}/voting/${currentEventId}`);
     formData.append('candidateImages', JSON.stringify(serializedCandidateImages));
-
-    // Append actual image files
-    Object.values(candidateImages).forEach((image, index) => {
-      if (image.file) {
-        formData.append('images', image.file);
-      }
-    });
 
     try {
       const isEditing = !!editingEventId;
@@ -374,7 +315,6 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Server response:', errorText);
         throw new Error(`Failed to ${isEditing ? 'update' : 'create'} event: ${errorText}`);
       }
 
@@ -426,13 +366,13 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
           <li>
             <button onClick={() => navigate('/manage')}>
               <FaCogs size={20} />
-              {!isSidebarMinimized && 'Manage Auctions'}
+              {!isSidebarMinimized && 'Manage Events'}
             </button>
           </li>
           <li>
-            <button onClick={() => navigate('/bids')}>
-              <FaGavel size={20} />
-              {!isSidebarMinimized && 'Bids'}
+            <button onClick={() => navigate('/')}>
+              <FaGavel size={24} />
+              {!isSidebarMinimized && 'Home'}
             </button>
           </li>
         </ul>
@@ -444,11 +384,11 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
           <nav>
             <ul>
               <li className='profile'>
-                <button className='profile-btn' onClick={toggleDropdown}>
+                <button className='popover__trigger' onClick={toggleDropdown}>
                   <FaUserCircle size={30} />
                 </button>
                 {isDropdownOpen && (
-                  <div className='dropdown'>
+                  <div className='popover__content'>
                     <ul>
                       <li><button onClick={handleProfile}>Profile</button></li>
                       <li><button onClick={handleSettings}>Settings</button></li>
@@ -471,7 +411,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
               ) : error ? (
                 <p>{error}</p>
               ) : activeEvents.length === 0 ? (
-                <p>No current events, auctions, or items.</p>
+                <p>No current events.</p>
               ) : (
                 activeEvents.map((event) => (
                   <div key={event.id} className="current-event">
@@ -610,16 +550,24 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                                   <td key={i}>{value}</td>
                                 ))}
                                 <td>
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={(e) => handleImageUpload(index, e)}
-                                    style={{ margin: '5px 0' }}
-                                  />
+                                  {uploadcarePublicKey ? (
+                                    <Widget
+                                      publicKey={uploadcarePublicKey}
+                                      onChange={(fileInfo) => handleImageUpload(index, fileInfo)}
+                                      clearable
+                                      imagesOnly
+                                      crop="1:1"
+                                      maxFileSize={2000000}
+                                    />
+                                  ) : (
+                                    <p style={{ color: 'red' }}>
+                                      Image upload disabled: Uploadcare public key missing. Check .env configuration.
+                                    </p>
+                                  )}
                                   {candidateImages[index] && (
                                     <div>
                                       <img
-                                        src={candidateImages[index].dataUrl}
+                                        src={candidateImages[index].cdnUrl}
                                         alt={`Candidate ${index}`}
                                         style={{ maxWidth: '100px', margin: '5px 0' }}
                                       />

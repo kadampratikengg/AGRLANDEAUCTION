@@ -52,6 +52,7 @@ const Voting = () => {
 
       const eventData = await response.json();
       console.log('Received event data:', eventData);
+      console.log('Candidate Images:', eventData.candidateImages);
       
       eventData.expiry = new Date().getTime() + 60 * 1000;
       setEvent(eventData);
@@ -103,20 +104,28 @@ const Voting = () => {
             </thead>
             <tbody>
               {event.selectedData.map((candidate, index) => {
+                // Log candidate index and available images for debugging
+                console.log(`Candidate index: ${index}, Candidate data:`, candidate);
                 const image = event.candidateImages?.find(
-                  (img) => img.candidateIndex === index
+                  (img) => Number(img.candidateIndex) === index
                 );
+                console.log(`Image for candidate index ${index}:`, image);
                 return (
                   <tr key={index}>
                     {headers.map((header) => (
                       <td key={header}>{candidate[header]}</td>
                     ))}
                     <td>
-                      {image ? (
+                      {image && image.cdnUrl ? (
                         <img
-                          src={`${process.env.REACT_APP_API_URL}${image.imagePath}`}
+                          src={image.cdnUrl}
                           alt={`Candidate ${index + 1}`}
                           className="candidate-image"
+                          style={{ maxWidth: '100px', height: 'auto' }}
+                          onError={(e) => {
+                            console.error(`Failed to load image for candidate ${index + 1}:`, image.cdnUrl);
+                            e.target.style.display = 'none';
+                          }}
                         />
                       ) : (
                         <span className="no-image">No image</span>

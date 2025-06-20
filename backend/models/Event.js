@@ -18,7 +18,8 @@ const eventSchema = new mongoose.Schema({
   candidateImages: [
     {
       candidateIndex: Number,
-      imagePath: String,
+      uuid: String,
+      cdnUrl: String,
     },
   ],
   expiry: { type: Number, required: true },

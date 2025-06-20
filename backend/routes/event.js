@@ -1,11 +1,13 @@
 const express = require('express');
-const path = require('path');
-const fs = require('fs');
+const axios = require('axios');
+const multer = require('multer');
 const Event = require('../models/Event');
 const Vote = require('../models/Vote');
 const { authenticateToken } = require('../middleware/auth');
-const { upload } = require('../middleware/multer');
 const router = express.Router();
+const upload = multer();
+
+router.use(express.json());
 
 // Fetch all events for authenticated user
 router.get('/events', authenticateToken, async (req, res) => {
@@ -36,9 +38,8 @@ router.get('/votes/:eventId', authenticateToken, async (req, res) => {
 });
 
 // Store Excel Data in Event
-router.post('/excel-data', authenticateToken, async (req, res) => {
+router.post('/excel-data', authenticateToken, upload.none(), async (req, res) => {
   console.log('📥 Excel data submission received:', req.body);
-
   const { eventId, fileData, timestamp } = req.body;
 
   if (!eventId || !fileData || !timestamp) {
@@ -65,9 +66,8 @@ router.post('/excel-data', authenticateToken, async (req, res) => {
 });
 
 // Verify ID
-router.post('/verify-id/:eventId', async (req, res) => {
+router.post('/verify-id/:eventId', upload.none(), async (req, res) => {
   console.log('📥 ID verification request for event:', req.params.eventId, 'ID:', req.body.id);
-
   const { id } = req.body;
   const eventId = req.params.eventId;
 
@@ -77,7 +77,6 @@ router.post('/verify-id/:eventId', async (req, res) => {
 
   try {
     const event = await Event.findOne({ id: eventId });
-    console.log('🔍 Event found:', event);
     if (!event || !event.fileData) {
       return res.status(404).json({ message: 'No Excel data found for this event' });
     }
@@ -87,12 +86,10 @@ router.post('/verify-id/:eventId', async (req, res) => {
       return values.length >= 2 && (values[1] === id || String(values[1]) === String(id));
     });
 
-    console.log('🔍 RowData found:', rowData);
     if (!rowData) {
       return res.status(200).json({ message: 'ID not found in second column of Excel data', verified: false });
     }
 
-    // Check if voter has already voted
     const existingVote = await Vote.findOne({ eventId, voterId: id });
     const hasVoted = !!existingVote;
 
@@ -104,7 +101,7 @@ router.post('/verify-id/:eventId', async (req, res) => {
 });
 
 // Submit Vote
-router.post('/vote/:eventId', async (req, res) => {
+router.post('/vote/:eventId', upload.none(), async (req, res) => {
   console.log('📥 Vote submission for event:', req.params.eventId, 'Data:', req.body);
   const { voterId, candidate } = req.body;
   const eventId = req.params.eventId;
@@ -138,13 +135,11 @@ router.post('/vote/:eventId', async (req, res) => {
 // Get Event
 router.get('/events/:id', authenticateToken, async (req, res) => {
   console.log('📥 Event fetch request for ID:', req.params.id, 'by user:', req.user.userId);
-
   try {
     const event = await Event.findOne({ id: req.params.id, userId: req.user.userId });
     if (!event) {
       return res.status(404).json({ message: 'Event not found or unauthorized' });
     }
-
     res.status(200).json(event);
   } catch (error) {
     console.error('❌ Error fetching event:', error);
@@ -153,11 +148,12 @@ router.get('/events/:id', authenticateToken, async (req, res) => {
 });
 
 // Create Event
-router.post('/events', authenticateToken, upload.array('images', 10), async (req, res) => {
-  console.log('📥 Event submission received:', {
-    body: req.body,
-    files: req.files ? req.files.map(file => ({ originalname: file.originalname, path: file.path })) : [],
-  });
+router.post('/events', authenticateToken, upload.none(), async (req, res) => {
+  console.log('📥 Event submission received:', req.body);
+  if (!req.body || Object.keys(req.body).length === 0) {
+    console.error('❌ Empty request body received');
+    return res.status(400).json({ message: 'Request body is empty' });
+  }
 
   const {
     id,
@@ -205,25 +201,6 @@ router.post('/events', authenticateToken, upload.array('images', 10), async (req
       return res.status(400).json({ message: 'selectedData must be a non-empty array' });
     }
 
-    console.log('🔍 Parsed candidateImages:', parsedCandidateImages);
-    console.log('🔍 Uploaded files:', req.files ? req.files.map(f => f.path) : []);
-
-    if (parsedCandidateImages.length > 0 && (!req.files || req.files.length !== parsedCandidateImages.length)) {
-      console.error('❌ Mismatch between candidateImages and uploaded files');
-      return res.status(400).json({
-        message: `Expected ${parsedCandidateImages.length} image files, but received ${req.files ? req.files.length : 0}`,
-      });
-    }
-
-    const imagePaths = parsedCandidateImages.map((img, index) => ({
-      candidateIndex: img.candidateIndex,
-      imagePath: req.files && req.files[index]
-        ? path.join('Uploads', path.basename(req.files[index].path)).replace(/\\/g, '/')
-        : img.imagePath || '',
-    }));
-
-    console.log('🔍 Final imagePaths to save:', imagePaths);
-
     const event = new Event({
       id,
       userId: req.user.userId,
@@ -234,17 +211,13 @@ router.post('/events', authenticateToken, upload.array('images', 10), async (req
       description,
       selectedData: parsedSelectedData,
       fileData: parsedFileData,
-      candidateImages: imagePaths,
+      candidateImages: parsedCandidateImages,
       expiry: Number(expiry),
       link,
     });
 
-    console.log('🧪 Validating event:', event);
     await event.validate();
-
-    console.log('💾 Saving event to DB...');
     await event.save();
-
     console.log('✅ Event saved successfully:', event);
     res.status(201).json({ message: 'Event created successfully', link: event.link });
   } catch (error) {
@@ -254,11 +227,12 @@ router.post('/events', authenticateToken, upload.array('images', 10), async (req
 });
 
 // Update Event
-router.put('/events/:id', authenticateToken, upload.array('images', 10), async (req, res) => {
-  console.log('📥 Event update request for ID:', req.params.id, 'Data:', {
-    body: req.body,
-    files: req.files ? req.files.map(file => ({ originalname: file.originalname, path: file.path })) : [],
-  });
+router.put('/events/:id', authenticateToken, upload.none(), async (req, res) => {
+  console.log('📥 Event update request for ID:', req.params.id, 'Data:', req.body);
+  if (!req.body || Object.keys(req.body).length === 0) {
+    console.error('❌ Empty request body received');
+    return res.status(400).json({ message: 'Request body is empty' });
+  }
 
   const {
     date,
@@ -304,41 +278,10 @@ router.put('/events/:id', authenticateToken, upload.array('images', 10), async (
       return res.status(400).json({ message: 'selectedData must be a non-empty array' });
     }
 
-    console.log('🔍 Parsed candidateImages:', parsedCandidateImages);
-    console.log('🔍 Uploaded files:', req.files ? req.files.map(f => f.path) : []);
-
-    if (parsedCandidateImages.length > 0 && (!req.files || req.files.length !== parsedCandidateImages.length)) {
-      console.error('❌ Mismatch between candidateImages and uploaded files');
-      return res.status(400).json({
-        message: `Expected ${parsedCandidateImages.length} image files, but received ${req.files ? req.files.length : 0}`,
-      });
-    }
-
-    const imagePaths = parsedCandidateImages.map((img, index) => ({
-      candidateIndex: img.candidateIndex,
-      imagePath: req.files && req.files[index]
-        ? path.join('Uploads', path.basename(req.files[index].path)).replace(/\\/g, '/')
-        : img.imagePath || '',
-    }));
-
-    console.log('🔍 Final imagePaths to save:', imagePaths);
-
     const existingEvent = await Event.findOne({ id: req.params.id, userId: req.user.userId });
     if (!existingEvent) {
       console.error('❌ Event not found or unauthorized for ID:', req.params.id);
       return res.status(404).json({ message: 'Event not found or unauthorized' });
-    }
-    if (existingEvent.candidateImages) {
-      for (const image of existingEvent.candidateImages) {
-        if (image.imagePath && fs.existsSync(image.imagePath)) {
-          try {
-            fs.unlinkSync(image.imagePath);
-            console.log(`🗑️ Deleted old image: ${image.imagePath}`);
-          } catch (err) {
-            console.error(`❌ Error deleting old image ${image.imagePath}:`, err);
-          }
-        }
-      }
     }
 
     const event = await Event.findOneAndUpdate(
@@ -351,7 +294,7 @@ router.put('/events/:id', authenticateToken, upload.array('images', 10), async (
         description,
         selectedData: parsedSelectedData,
         fileData: parsedFileData,
-        candidateImages: imagePaths,
+        candidateImages: parsedCandidateImages,
         expiry: Number(expiry),
         link,
       },
@@ -374,32 +317,36 @@ router.put('/events/:id', authenticateToken, upload.array('images', 10), async (
 // Delete Event
 router.delete('/events/:id', authenticateToken, async (req, res) => {
   console.log('📥 Event deletion request for ID:', req.params.id, 'by user:', req.user.userId);
-
   try {
-    const event = await Event.findOneAndDelete({ id: req.params.id, userId: req.user.userId });
-
+    const event = await Event.findOne({ id: req.params.id, userId: req.user.userId });
     if (!event) {
       console.error('❌ Event not found or unauthorized for ID:', req.params.id);
       return res.status(404).json({ message: 'Event not found or unauthorized' });
     }
 
-    if (event.candidateImages) {
-      for (const image of event.candidateImages) {
-        if (image.imagePath && fs.existsSync(image.imagePath)) {
-          try {
-            fs.unlinkSync(image.imagePath);
-            console.log(`🗑️ Deleted image: ${image.imagePath}`);
-          } catch (err) {
-            console.error(`❌ Error deleting image ${image.imagePath}:`, err);
-          }
+    if (event.candidateImages && event.candidateImages.length > 0) {
+      const uuids = event.candidateImages.map((img) => img.uuid).filter(Boolean);
+      if (uuids.length > 0) {
+        try {
+          await axios.delete('https://api.uploadcare.com/files/', {
+            headers: {
+              'Authorization': `Uploadcare.Simple ${process.env.UPLOADCARE_PUBLIC_KEY}:${process.env.UPLOADCARE_SECRET_KEY}`,
+              'Accept': 'application/vnd.uploadcare-v0.7+json',
+            },
+            data: { uuids },
+          });
+          console.log(`🗑️ Deleted ${uuids.length} images from Uploadcare`);
+        } catch (err) {
+          console.error('❌ Error deleting images from Uploadcare:', err.response?.data || err.message);
         }
       }
     }
 
+    await Event.findOneAndDelete({ id: req.params.id, userId: req.user.userId });
     await Vote.deleteMany({ eventId: req.params.id });
     console.log(`🗑️ Deleted votes for event: ${req.params.id}`);
 
-    console.log('✅ Event and associated fileData deleted successfully:', event);
+    console.log('✅ Event and associated data deleted successfully');
     res.status(200).json({ message: 'Event deleted successfully' });
   } catch (error) {
     console.error('❌ Error deleting event:', error);
