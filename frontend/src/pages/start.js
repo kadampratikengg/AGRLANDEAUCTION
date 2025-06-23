@@ -138,8 +138,6 @@ const Start = () => {
 
   return (
     <div className="voting-start-container">
-      
-
       {showVoterDetails && (
         <>
           <div className="id-verification">
@@ -225,11 +223,15 @@ const Start = () => {
                       ))}
                     </div>
                     <div className="candidate-image-container">
-                      {eventData.candidateImages?.find(img => img.candidateIndex === index) ? (
+                      {eventData.candidateImages?.find(img => Number(img.candidateIndex) === index)?.cdnUrl ? (
                         <img
-                          src={`${process.env.REACT_APP_API_URL}${eventData.candidateImages.find(img => img.candidateIndex === index).imagePath}`}
+                          src={eventData.candidateImages.find(img => Number(img.candidateIndex) === index).cdnUrl}
                           alt={`Candidate ${index + 1}`}
                           className="candidate-image-large"
+                          onError={(e) => {
+                            console.error(`Failed to load image for candidate ${index + 1}`);
+                            e.target.style.display = 'none';
+                          }}
                         />
                       ) : (
                         <p>No image</p>

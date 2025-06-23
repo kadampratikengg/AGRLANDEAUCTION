@@ -73,7 +73,7 @@ const Result = () => {
   const candidateResults = event?.selectedData?.map((candidate, index) => ({
     name: candidate.Name || `Candidate ${index + 1}`,
     votes: voteCounts[candidate.Name || `Candidate ${index + 1}`] || 0,
-    image: event?.candidateImages?.find(img => img.candidateIndex === index)?.imagePath || null,
+    image: event?.candidateImages?.find(img => Number(img.candidateIndex) === index)?.cdnUrl || null,
   })) || [];
 
   if (loading) return <div className="result-container">Loading...</div>;
@@ -106,9 +106,13 @@ const Result = () => {
                 <td>
                   {candidate.image ? (
                     <img
-                      src={`${process.env.REACT_APP_API_URL}/Uploads/${candidate.image.split('/').pop()}`}
+                      src={candidate.image}
                       alt={`Candidate ${candidate.name}`}
                       style={{ maxWidth: '100px', height: 'auto' }}
+                      onError={(e) => {
+                        console.error(`Failed to load image for candidate ${candidate.name}:`, candidate.image);
+                        e.target.style.display = 'none';
+                      }}
                     />
                   ) : (
                     'No image'

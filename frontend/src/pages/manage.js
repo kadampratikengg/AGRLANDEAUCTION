@@ -277,11 +277,17 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     const expiryTime = new Date(`${eventDate}T${stopTime}`).getTime();
     const currentEventId = editingEventId || eventId;
 
-    const serializedCandidateImages = Object.keys(candidateImages).map((index) => ({
-      candidateIndex: parseInt(index),
-      uuid: candidateImages[index].uuid,
-      cdnUrl: candidateImages[index].cdnUrl,
-    }));
+    // Map candidateImages to match selectedData indices
+    const serializedCandidateImages = checkedRows.map((rowIndex) => {
+      const image = candidateImages[rowIndex];
+      return {
+        candidateIndex: checkedRows.indexOf(rowIndex), // Align with selectedData index
+        uuid: image ? image.uuid : null,
+        cdnUrl: image ? image.cdnUrl : null,
+      };
+    }).filter(img => img.uuid && img.cdnUrl); // Filter out null images
+
+    console.log('Serialized Candidate Images:', serializedCandidateImages);
 
     const formData = new FormData();
     formData.append('id', currentEventId);
@@ -346,7 +352,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       resetForm();
     } catch (error) {
       console.error(`Error ${editingEventId ? 'updating' : 'creating'} event:`, error);
-      alert(error.message || `There was an error ${editingEventId ? 'updating' : 'creating'} the event. Please try again.`);
+      alert(error.message || `Error ${editingEventId ? 'updating' : 'creating'} the event. Please try again.`);
     }
   };
 
@@ -360,7 +366,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
           <li>
             <button onClick={() => navigate('/dashboard')}>
               <FaTachometerAlt size={20} />
-              {!isSidebarMinimized && 'Dashboard'}
+              {!isSidebarMinimized && 'View'}
             </button>
           </li>
           <li>
@@ -370,8 +376,8 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
             </button>
           </li>
           <li>
-            <button onClick={() => navigate('/')}>
-              <FaGavel size={24} />
+            <button onClick={() => navigate('/bids')}>
+              <FaGavel />
               {!isSidebarMinimized && 'Home'}
             </button>
           </li>
@@ -380,15 +386,16 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
       <div className='content'>
         <div className='navbar'>
-          <h1>A M</h1>
+          <h1>Events</h1>
           <nav>
             <ul>
+            <ul>
               <li className='profile'>
-                <button className='popover__trigger' onClick={toggleDropdown}>
+                <button className='profile-btn' onClick={toggleDropdown}>
                   <FaUserCircle size={30} />
                 </button>
                 {isDropdownOpen && (
-                  <div className='popover__content'>
+                  <div className='dropdown'>
                     <ul>
                       <li><button onClick={handleProfile}>Profile</button></li>
                       <li><button onClick={handleSettings}>Settings</button></li>
@@ -398,71 +405,74 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                 )}
               </li>
             </ul>
+            </ul>
           </nav>
         </div>
 
         <div className='main-content'>
-          <h2>Welcome to the Manage</h2>
+          <h2>Welcome</h2>
           <div className="sections-container">
             <div className="current-section">
-              <h3>All Events</h3>
-              {loading ? (
-                <p>Loading events...</p>
-              ) : error ? (
-                <p>{error}</p>
-              ) : activeEvents.length === 0 ? (
-                <p>No current events.</p>
-              ) : (
-                activeEvents.map((event) => (
-                  <div key={event.id} className="current-event">
-                    <h4>{event.name}</h4>
-                    <p>{event.description}</p>
-                    <p>Date: {event.date}</p>
-                    <p>Start: {event.startTime} - Stop: {event.stopTime}</p>
-                    <a href={event.link} target="_blank" rel="noopener noreferrer">{event.link}</a>
-                    <div className="event-actions" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                      <button
-                        className="delete-btn"
-                        onClick={() => handleDeleteEvent(event.id)}
-                        title="Delete Event"
-                        style={{
-                          background: '#ff4d4d',
-                          color: 'white',
-                          padding: '5px 10px',
-                          border: 'none',
-                          borderRadius: '5px',
-                        }}
-                      >
-                        Delete
-                      </button>
-                      <button
-                        onClick={() => handleEditEvent(event.id, event)}
-                        style={{
-                          background: '#4CAF50',
-                          color: 'white',
-                          padding: '5px 10px',
-                          border: 'none',
-                          borderRadius: '5px',
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleViewResults(event.id)}
-                        style={{
-                          background: '#2196F3',
-                          color: 'white',
-                          padding: '5px 10px',
-                          border: 'none',
-                          borderRadius: '5px',
-                        }}
-                      >
-                        Results
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
+              <div className='event-alignment'>
+                <h3>Events</h3>
+                {loading ? (
+                  <p>Loading...</p>
+                ) : error ? (
+                    <p>{error}</p>
+                  ) : activeEvents.length === 0 ? (
+                    <p>No events.</p>
+                  ) : (
+                    activeEvents.map((event) => (
+                      <div key={event.id} className='event'>
+                        <h4>{event.name}</h4>
+                        <p>{event.description}</p>
+                        <p>Date: {event.date}</p>
+                        <p>Start: {event.startTime} - Stop: {event.stopTime}</p>
+                        <a href={event.link} target="_blank" rel="noopener noreferrer">{event.link}</a>
+                        <div className="event-actions" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                          <button
+                            className="delete-btn"
+                            onClick={() => handleDeleteEvent(event.id)}
+                            title="Delete Event"
+                            style={{
+                              background: '#ff4d4d',
+                              color: 'white',
+                              padding: '5px 10px',
+                              border: 'none',
+                              borderRadius: '5px',
+                            }}
+                          >
+                            Delete
+                          </button>
+                          <button
+                            onClick={() => handleEditEvent(event.id, event)}
+                            style={{
+                              background: '#4CAF50',
+                              color: 'white',
+                              padding: '5px 10px',
+                              border: 'none',
+                              borderRadius: '5px',
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleViewResults(event.id)}
+                            style={{
+                              background: '#2196F3',
+                              color: 'white',
+                              padding: '5px 10px',
+                              border: 'none',
+                              borderRadius: '5px',
+                            }}
+                          >
+                            Results
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+              </div>
             </div>
 
             <div className="create-section">
@@ -487,7 +497,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                       type="time"
                       id="startTime"
                       value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
+                      onChange={(e) => setStartTime(e.target.value)} // Fixed: Correctly update startTime
                       required
                     />
 

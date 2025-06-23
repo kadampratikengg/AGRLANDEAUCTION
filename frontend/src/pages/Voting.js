@@ -104,12 +104,11 @@ const Voting = () => {
             </thead>
             <tbody>
               {event.selectedData.map((candidate, index) => {
-                // Log candidate index and available images for debugging
-                console.log(`Candidate index: ${index}, Candidate data:`, candidate);
+                // Map candidate to its corresponding image using candidateIndex
                 const image = event.candidateImages?.find(
                   (img) => Number(img.candidateIndex) === index
                 );
-                console.log(`Image for candidate index ${index}:`, image);
+                console.log(`Candidate index: ${index}, Image:`, image);
                 return (
                   <tr key={index}>
                     {headers.map((header) => (
