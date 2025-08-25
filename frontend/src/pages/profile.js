@@ -1,247 +1,208 @@
 import React, { useState, useEffect } from 'react';
-import './dashboard.css';
-import {
-  FaUserCircle,
-  FaChevronLeft,
-  FaChevronRight,
-  FaTachometerAlt,
-  FaCogs,
-  FaGavel,
-} from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+// import Navbar from './Navbar';
+import Sidebar from './Sidebar';
+import './App.css';
 
-const Profile = ({ setIsAuthenticated }) => {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isSidebarMinimized, setIsSidebarMinimized] = useState(true);
+const Profile = () => {
   const [userData, setUserData] = useState({
+    username: '',
     name: '',
+    organization: '',
+    logo: '',
+    contact: '',
     email: '',
-    contactNumber: '',
-    photoPath: '',
+    phone: ''
   });
-  const [photoFile, setPhotoFile] = useState(null);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [message, setMessage] = useState('');
+  const [logoFile, setLogoFile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const userId = localStorage.getItem('userId');
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${userId}`, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
+        setLoading(true);
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/user/profile`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
-
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.message || 'Failed to fetch user data');
-        }
-
-        setUserData({
-          name: data.name || '',
-          email: data.email || '',
-          contactNumber: data.contactNumber || '',
-          photoPath: data.photoPath ? `${process.env.REACT_APP_API_URL}/${data.photoPath}` : '',
-        });
-      } catch (err) {
-        setError(err.message);
+        setUserData(response.data);
+        setMessage('');
+      } catch (error) {
+        setMessage(error.response?.status === 404 
+          ? 'Profile endpoint not found. Please check the backend server.'
+          : 'Error fetching user data');
       } finally {
         setLoading(false);
       }
     };
-
     fetchUserData();
   }, []);
 
-  const toggleDropdown = () => {
-    setIsDropdownOpen((prevState) => !prevState);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('token');
-    localStorage.removeItem('userId');
-    setIsAuthenticated(false);
-    navigate('/');
-  };
-
-  const handleProfile = () => {
-    navigate('/profile');
-  };
-
-  const handleSettings = () => {
-    navigate('/settings');
-  };
-
-  const toggleSidebar = () => {
-    setIsSidebarMinimized((prevState) => !prevState);
-  };
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setUserData((prev) => ({ ...prev, [name]: value }));
+    setUserData({ ...userData, [name]: value });
   };
 
-  const handlePhotoChange = (e) => {
-    const file = e.target.files[0];
-    if (file && file.type.startsWith('image/')) {
-      setPhotoFile(file);
-    } else {
-      setError('Please upload a valid image file');
-    }
+  const handleLogoChange = (e) => {
+    setLogoFile(e.target.files[0]);
   };
 
-  const handleUpdateProfile = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
-
     const formData = new FormData();
-    formData.append('name', userData.name);
-    formData.append('email', userData.email);
-    formData.append('contactNumber', userData.contactNumber);
-    if (photoFile) {
-      formData.append('photo', photoFile);
+    for (const key in userData) {
+      if (key !== 'username') {
+        formData.append(key, userData[key]);
+      }
+    }
+    if (logoFile) {
+      formData.append('logo', logoFile);
     }
 
     try {
-      const token = localStorage.getItem('token');
-      const userId = localStorage.getItem('userId');
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${userId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: formData,
+      const response = await axios.put(`${process.env.REACT_APP_API_URL}/api/user/profile`, formData, {
+        headers: { 
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'multipart/form-data'
+        }
       });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to update profile');
-      }
-
-      setSuccess('Profile updated successfully');
-      setUserData({
-        name: data.user.name,
-        email: data.user.email,
-        contactNumber: data.user.contactNumber,
-        photoPath: data.user.photoPath ? `${process.env.REACT_APP_API_URL}/${data.user.photoPath}` : '',
-      });
-      setPhotoFile(null);
-    } catch (err) {
-      setError(err.message);
+      setUserData(response.data);
+      setMessage('Profile updated successfully');
+    } catch (error) {
+      setMessage('Error updating profile');
     }
   };
 
-  if (loading) return <div className="dashboard">Loading...</div>;
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      setMessage('Passwords do not match');
+      return;
+    }
+
+    try {
+      await axios.put(`${process.env.REACT_APP_API_URL}/api/user/password`, 
+        { password: newPassword },
+        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+      );
+      setMessage('Password updated successfully');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error) {
+      setMessage('Error updating password');
+    }
+  };
 
   return (
-    <div className='dashboard'>
-      <div className={`sidebar ${isSidebarMinimized ? 'minimized' : ''}`}>
-        <button className='minimize-btn' onClick={toggleSidebar}>
-          {isSidebarMinimized ? <FaChevronRight /> : <FaChevronLeft />}
-        </button>
-        <ul>
-          <li>
-            <button onClick={() => navigate('/dashboard')}>
-              <FaTachometerAlt size={20} />
-              {!isSidebarMinimized && 'Dashboard'}
-            </button>
-          </li>
-          <li>
-            <button onClick={() => navigate('/manage')}>
-              <FaCogs size={20} />
-              {!isSidebarMinimized && 'Manage Auctions'}
-            </button>
-          </li>
-          <li>
-            <button onClick={() => navigate('/bids')}>
-              <FaGavel size={20} />
-              {!isSidebarMinimized && 'Bids'}
-            </button>
-          </li>
-        </ul>
-      </div>
-
-      <div className='content'>
-        <div className='navbar'>
-          <h1>A M</h1>
-          <nav>
-            <ul>
-              <li className='profile'>
-                <button className='profile-btn' onClick={toggleDropdown}>
-                  <FaUserCircle size={30} />
-                </button>
-                {isDropdownOpen && (
-                  <div className='dropdown'>
-                    <ul>
-                      <li><button onClick={handleProfile}>Profile</button></li>
-                      <li><button onClick={handleSettings}>Settings</button></li>
-                      <li><button onClick={handleLogout}>Log Out</button></li>
-                    </ul>
-                  </div>
-                )}
-              </li>
-            </ul>
-          </nav>
-        </div>
-
-        <div className='main-content'>
-          <h2>Profile</h2>
-          <div className="profile-section">
-            <form onSubmit={handleUpdateProfile}>
-              <div className="profile-photo">
-                {userData.photoPath ? (
-                  <img src={userData.photoPath} alt="Profile" style={{ maxWidth: '150px', borderRadius: '50%' }} />
-                ) : (
-                  <FaUserCircle size={150} />
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePhotoChange}
-                  style={{ margin: '10px 0' }}
-                />
-              </div>
-
-              <label htmlFor="name">Name:</label>
+    <div className="app-container">
+      {/* <Navbar /> */}
+      <div className="main-content">
+        <Sidebar />
+        <div className="profile-container">
+          <h2>User Profile</h2>
+          {loading && <p>Loading...</p>}
+          {message && <p className="message">{message}</p>}
+          
+          <form onSubmit={handleSubmit} className="profile-form">
+            <div className="form-group">
+              <label>Username (cannot be changed):</label>
               <input
                 type="text"
-                id="name"
+                value={userData.username}
+                disabled
+                className="form-control"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Full Name:</label>
+              <input
+                type="text"
                 name="name"
                 value={userData.name}
                 onChange={handleInputChange}
+                className="form-control"
+                required
               />
+            </div>
 
-              <label htmlFor="email">Email:</label>
+            <div className="form-group">
+              <label>Organization Name:</label>
+              <input
+                type="text"
+                name="organization"
+                value={userData.organization}
+                onChange={handleInputChange}
+                className="form-control"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Organization Logo:</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleLogoChange}
+                className="form-control"
+              />
+              {userData.logo && (
+                <img src={userData.logo} alt="Organization Logo" className="org-logo" />
+              )}
+            </div>
+
+            <div className="form-group">
+              <label>Contact Email:</label>
               <input
                 type="email"
-                id="email"
                 name="email"
                 value={userData.email}
                 onChange={handleInputChange}
-                required
+                className="form-control"
               />
+            </div>
 
-              <label htmlFor="contactNumber">Contact Number:</label>
+            <div className="form-group">
+              <label>Phone Number:</label>
               <input
                 type="tel"
-                id="contactNumber"
-                name="contactNumber"
-                value={userData.contactNumber}
+                name="phone"
+                value={userData.phone}
                 onChange={handleInputChange}
+                className="form-control"
               />
+            </div>
 
-              <button type="submit">Update Profile</button>
-            </form>
-            {error && <p className="error-message">{error}</p>}
-            {success && <p className="success-message">{success}</p>}
-          </div>
+            <button type="submit" className="btn btn-primary">Update Profile</button>
+          </form>
+
+          <form onSubmit={handlePasswordChange} className="password-form">
+            <h3>Change Password</h3>
+            <div className="form-group">
+              <label>New Password:</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="form-control"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Confirm Password:</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="form-control"
+                required
+              />
+            </div>
+
+            <button type="submit" className="btn btn-primary">Change Password</button>
+          </form>
         </div>
       </div>
     </div>

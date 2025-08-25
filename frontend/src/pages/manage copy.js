@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import { FaUserCircle } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { v4 as uuidv4 } from 'uuid';
 import { Widget } from '@uploadcare/react-widget';
 import Sidebar from './Sidebar';
-// import Navbar from './Navbar';
 
 const Dashboard = ({ setIsAuthenticated, name }) => {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [fileData, setFileData] = useState([]);
   const [checkedRows, setCheckedRows] = useState([]);
   const [fileName, setFileName] = useState('');
@@ -157,6 +158,26 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
   const handleViewResults = (eventId) => {
     navigate(`/results/${eventId}`);
+  };
+
+  const toggleDropdown = () => {
+    setIsDropdownOpen((prevState) => !prevState);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('token');
+    localStorage.removeItem('userId');
+    setIsAuthenticated(false);
+    navigate('/');
+  };
+
+  const handleProfile = () => {
+    navigate('/profile');
+  };
+
+  const handleSettings = () => {
+    navigate('/settings');
   };
 
   const handleFileUpload = async (e) => {
@@ -324,133 +345,164 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   };
 
   return (
-    <div className="app-container">
-      {/* <Navbar setIsAuthenticated={setIsAuthenticated} /> */}
+    <div className='dashboard'>
       <div className="main-content">
         <Sidebar />
-        <div className="content">
-          <h2>Events</h2>
+      </div>
+
+      <div className='content'>
+        <div className='navbar'>
+          <h1>Events</h1>
+          <nav>
+            <ul>
+              <li className='profile'>
+                <button className='profile-btn' onClick={toggleDropdown}>
+                  <FaUserCircle size={30} />
+                </button>
+                {isDropdownOpen && (
+                  <div className='dropdown'>
+                    <ul>
+                      <li><button onClick={handleProfile}>Profile</button></li>
+                      <li><button onClick={handleSettings}>Settings</button></li>
+                      <li><button onClick={handleLogout}>Log Out</button></li>
+                    </ul>
+                  </div>
+                )}
+              </li>
+            </ul>
+          </nav>
+        </div>
+
+        <div className='main-content'>
+          <h2>Welcome</h2>
           <div className="sections-container">
             <div className="current-section">
-              <h3>Events</h3>
-              {loading ? (
-                <p>Loading...</p>
-              ) : error ? (
-                  <p>{error}</p>
-                ) : activeEvents.length === 0 ? (
-                  <p>No events.</p>
-                ) : (
-                  activeEvents.map((event) => (
-                    <div key={event.id} className="event">
-                      <h4>{event.name}</h4>
-                      <p>{event.description}</p>
-                      <p>Date: {event.date}</p>
-                      <p>Start: {event.startTime} - Stop: {event.stopTime}</p>
-                      <a href={event.link} target="_blank" rel="noopener noreferrer">{event.link}</a>
-                      <div className="event-actions" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                        <button
-                          className="btn-primary"
-                          style={{ background: '#ff4d4d', color: 'white', padding: '5px 10px', border: 'none', borderRadius: '5px' }}
-                          onClick={() => handleDeleteEvent(event.id)}
-                          title="Delete Event"
-                        >
-                          Delete
-                        </button>
-                        <button
-                          className="btn-primary"
-                          style={{ background: '#4CAF50', color: 'white', padding: '5px 10px', border: 'none', borderRadius: '5px' }}
-                          onClick={() => handleEditEvent(event.id, event)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="btn-primary"
-                          style={{ background: '#2196F3', color: 'white', padding: '5px 10px', border: 'none', borderRadius: '5px' }}
-                          onClick={() => handleViewResults(event.id)}
-                        >
-                          Results
-                        </button>
+              <div className='event-alignment'>
+                <h3>Events</h3>
+                {loading ? (
+                  <p>Loading...</p>
+                ) : error ? (
+                    <p>{error}</p>
+                  ) : activeEvents.length === 0 ? (
+                    <p>No events.</p>
+                  ) : (
+                    activeEvents.map((event) => (
+                      <div key={event.id} className='event'>
+                        <h4>{event.name}</h4>
+                        <p>{event.description}</p>
+                        <p>Date: {event.date}</p>
+                        <p>Start: {event.startTime} - Stop: {event.stopTime}</p>
+                        <a href={event.link} target="_blank" rel="noopener noreferrer">{event.link}</a>
+                        <div className="event-actions" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                          <button
+                            className="delete-btn"
+                            onClick={() => handleDeleteEvent(event.id)}
+                            title="Delete Event"
+                            style={{
+                              background: '#ff4d4d',
+                              color: 'white',
+                              padding: '5px 10px',
+                              border: 'none',
+                              borderRadius: '5px',
+                            }}
+                          >
+                            Delete
+                          </button>
+                          <button
+                            onClick={() => handleEditEvent(event.id, event)}
+                            style={{
+                              background: '#4CAF50',
+                              color: 'white',
+                              padding: '5px 10px',
+                              border: 'none',
+                              borderRadius: '5px',
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleViewResults(event.id)}
+                            style={{
+                              background: '#2196F3',
+                              color: 'white',
+                              padding: '5px 10px',
+                              border: 'none',
+                              borderRadius: '5px',
+                            }}
+                          >
+                            Results
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))
-                )}
+                    ))
+                  )}
+              </div>
             </div>
 
             <div className="create-section">
               <h3>Create</h3>
-              <button className="create-event-btn" onClick={handleCreateEvent}>Create Event</button>
+              <button onClick={handleCreateEvent}>Create Event</button>
 
               {showEventForm && (
-                <div className="form-wrapper">
-                  <form onSubmit={handleEventFormSubmit} className="event-form-container">
-                    <h3>{editingEventId ? 'Edit Event' : 'Create Event'}</h3>
-                    <div className="form-group">
-                      <label htmlFor="eventDate">Event Date:</label>
-                      <input
-                        type="date"
-                        id="eventDate"
-                        value={eventDate}
-                        onChange={(e) => setEventDate(e.target.value)}
-                        required
-                      />
-                    </div>
+                <div className="event-form-container">
+                  <h3>{editingEventId ? 'Edit Event' : 'Create Event'}</h3>
+                  <form onSubmit={handleEventFormSubmit}>
+                    <label htmlFor="eventDate">Event Date:</label>
+                    <input
+                      type="date"
+                      id="eventDate"
+                      value={eventDate}
+                      onChange={(e) => setEventDate(e.target.value)}
+                      required
+                    />
 
-                    <div className="form-group">
-                      <label htmlFor="startTime">Start Time:</label>
-                      <input
-                        type="time"
-                        id="startTime"
-                        value={startTime}
-                        onChange={(e) => setStartTime(e.target.value)}
-                        required
-                      />
-                    </div>
+                    <label htmlFor="startTime">Start Time:</label>
+                    <input
+                      type="time"
+                      id="startTime"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      required
+                    />
 
-                    <div className="form-group">
-                      <label htmlFor="stopTime">Stop Time:</label>
-                      <input
-                        type="time"
-                        id="stopTime"
-                        value={stopTime}
-                        onChange={(e) => setStopTime(e.target.value)}
-                        required
-                      />
-                    </div>
+                    <label htmlFor="stopTime">Stop Time:</label>
+                    <input
+                      type="time"
+                      id="stopTime"
+                      value={stopTime}
+                      onChange={(e) => setStopTime(e.target.value)}
+                      required
+                    />
 
-                    <div className="form-group">
-                      <label htmlFor="eventName">Event Name:</label>
-                      <input
-                        type="text"
-                        id="eventName"
-                        value={eventName}
-                        onChange={(e) => setEventName(e.target.value)}
-                        required
-                      />
-                    </div>
+                    <label htmlFor="eventName">Event Name:</label>
+                    <input
+                      type="text"
+                      id="eventName"
+                      value={eventName}
+                      onChange={(e) => setEventName(e.target.value)}
+                      required
+                    />
 
-                    <div className="form-group">
-                      <label htmlFor="eventDescription">Description:</label>
-                      <textarea
-                        id="eventDescription"
-                        value={eventDescription}
-                        onChange={(e) => setEventDescription(e.target.value)}
-                        required
-                      />
-                    </div>
+                    <label htmlFor="eventDescription">Description:</label>
+                    <textarea
+                      id="eventDescription"
+                      value={eventDescription}
+                      onChange={(e) => setEventDescription(e.target.value)}
+                      required
+                    />
 
-                    <div className="form-group">
-                      <label htmlFor="fileUpload">Upload Excel File:</label>
-                      <input
-                        type="file"
-                        id="fileUpload"
-                        accept=".xlsx"
-                        onChange={handleFileUpload}
-                      />
-                      <p>File Uploaded: {fileName || 'AllDetailsFile.xlsx'}</p>
-                      <a href="../file/AllDetailsFile.xlsx" target="_blank" rel="noopener noreferrer">
-                        Download Sample File
-                      </a>
-                    </div>
+                    <label htmlFor="fileUpload">Upload Excel File:</label>
+                    <input
+                      type="file"
+                      id="fileUpload"
+                      accept=".xlsx"
+                      onChange={handleFileUpload}
+                      style={{ marginTop: '10px' }}
+                    />
+                    <p>File Uploaded: {fileName || 'AllDetailsFile.xlsx'}</p>
+                    <a href="../file/AllDetailsFile.xlsx" target="_blank" rel="noopener noreferrer">
+                      Download Sample File
+                    </a>
 
                     {fileData.length > 0 && (
                       <div>
@@ -494,9 +546,14 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                                         style={{ maxWidth: '100px', margin: '5px 0' }}
                                       />
                                       <button
-                                        className="btn-primary"
-                                        style={{ background: '#ff4d4d', color: 'white', padding: '5px 10px', border: 'none', borderRadius: '5px' }}
                                         onClick={() => handleClearImage(index)}
+                                        style={{
+                                          background: '#ff4d4d',
+                                          color: 'white',
+                                          padding: '5px 10px',
+                                          border: 'none',
+                                          borderRadius: '5px',
+                                        }}
                                       >
                                         Clear Image
                                       </button>
@@ -517,7 +574,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                       </div>
                     )}
 
-                    <button type="submit" className="btn-primary">{editingEventId ? 'Update Event' : 'Create Event'}</button>
+                    <button type="submit">{editingEventId ? 'Update Event' : 'Create Event'}</button>
                   </form>
 
                   {eventCreated && (

@@ -1,18 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import './dashboard.css';
-import {
-  FaUserCircle,
-  FaChevronLeft,
-  FaChevronRight,
-  FaTachometerAlt,
-  FaCogs,
-  FaGavel,
-} from 'react-icons/fa';
+import './App.css';
+// import Navbar from './Navbar';
+import Sidebar from './Sidebar';
 import { useNavigate } from 'react-router-dom';
 
 const Dashboard = ({ setIsAuthenticated, name }) => {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isSidebarMinimized, setIsSidebarMinimized] = useState(true);
   const [activeEvents, setActiveEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -28,7 +20,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       setError(null);
       try {
         const apiUrl = process.env.REACT_APP_API_URL;
-        const token = localStorage.getItem('token'); // Get JWT token
+        const token = localStorage.getItem('token');
         const response = await fetch(`${apiUrl}/api/events`, {
           method: 'GET',
           headers: {
@@ -56,30 +48,6 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
   const handleViewResults = (eventId) => {
     navigate(`/results/${eventId}`);
-  };
-
-  const toggleDropdown = () => {
-    setIsDropdownOpen((prevState) => !prevState);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('token');
-    localStorage.removeItem('userId');
-    setIsAuthenticated(false);
-    navigate('/');
-  };
-
-  const handleProfile = () => {
-    navigate('/profile');
-  };
-
-  const handleSettings = () => {
-    navigate('/settings');
-  };
-
-  const toggleSidebar = () => {
-    setIsSidebarMinimized((prevState) => !prevState);
   };
 
   const handleDeleteEvent = async (id) => {
@@ -157,61 +125,15 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   };
 
   // Filter today's events
-  const today = new Date().toISOString().split('T')[0]; // e.g., '2025-06-17'
+  const today = new Date().toISOString().split('T')[0];
   const todayEvents = activeEvents.filter((event) => event.date === today);
 
   return (
-    <div className='dashboard'>
-      <div className={`sidebar ${isSidebarMinimized ? 'minimized' : ''}`}>
-        <button className='minimize-btn' onClick={toggleSidebar}>
-          {isSidebarMinimized ? <FaChevronRight /> : <FaChevronLeft />}
-        </button>
-        <ul>
-          <li>
-            <button onClick={() => navigate('/dashboard')}>
-              <FaTachometerAlt size={20} />
-              {!isSidebarMinimized && 'Dashboard'}
-            </button>
-          </li>
-          <li>
-            <button onClick={() => navigate('/manage')}>
-              <FaCogs size={20} />
-              {!isSidebarMinimized && 'Manage Auctions'}
-            </button>
-          </li>
-          <li>
-            <button onClick={() => navigate('/bids')}>
-              <FaGavel size={20} />
-              {!isSidebarMinimized && 'Bids'}
-            </button>
-          </li>
-        </ul>
-      </div>
-
-      <div className='content'>
-        <div className='navbar'>
-          <h1>A M</h1>
-          <nav>
-            <ul>
-              <li className='profile'>
-                <button className='profile-btn' onClick={toggleDropdown}>
-                  <FaUserCircle size={30} />
-                </button>
-                {isDropdownOpen && (
-                  <div className='dropdown'>
-                    <ul>
-                      <li><button onClick={handleProfile}>Profile</button></li>
-                      <li><button onClick={handleSettings}>Settings</button></li>
-                      <li><button onClick={handleLogout}>Log Out</button></li>
-                    </ul>
-                  </div>
-                )}
-              </li>
-            </ul>
-          </nav>
-        </div>
-
-        <div className='main-content'>
+    <div className="app-container">
+      {/* <Navbar setIsAuthenticated={setIsAuthenticated} /> */}
+      <div className="main-content">
+        <Sidebar />
+        <div className="content">
           <h2>Welcome to the Dashboard</h2>
           <div className="sections-container">
             <div className="current-section">

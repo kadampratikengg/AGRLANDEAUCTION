@@ -1,21 +1,11 @@
 import React, { useState } from 'react';
-import './dashboard.css';
-import {
-  FaUserCircle,
-  FaChevronLeft,
-  FaChevronRight,
-  FaTachometerAlt,
-  FaCogs,
-  FaGavel,
-} from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
+import './App.css';
+// import Navbar from './Navbar';
+import Sidebar from './Sidebar';
 
-const Dashboard = ({ setIsAuthenticated }) => {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isSidebarMinimized, setIsSidebarMinimized] = useState(true);
+const Bids = ({ setIsAuthenticated }) => {
   const [showContactForm, setShowContactForm] = useState(false);
   const [showOrderForm, setShowOrderForm] = useState(false);
-
   const [businessName, setBusinessName] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
@@ -27,8 +17,6 @@ const Dashboard = ({ setIsAuthenticated }) => {
   const [addressline1, setAddressLine1] = useState('');
   const [pincode, setPincode] = useState('');
   const [orderItems, setOrderItems] = useState([]);
-  
-  const navigate = useNavigate();
   
   const locationData = {
     Maharashtra: {
@@ -64,18 +52,6 @@ const Dashboard = ({ setIsAuthenticated }) => {
     const taluka = e.target.value;
     setSelectedTaluka(taluka);
   };
-
-  const toggleDropdown = () => setIsDropdownOpen(!isDropdownOpen);
-  const toggleSidebar = () => setIsSidebarMinimized(!isSidebarMinimized);
-
-  const handleLogout = () => {
-    localStorage.removeItem('isAuthenticated');
-    setIsAuthenticated(false);
-    navigate('/');
-  };
-
-  const handleProfile = () => navigate('/profile');
-  const handleSettings = () => navigate('/settings');
 
   const handleContactFormSubmit = async (e) => {
     e.preventDefault();
@@ -117,7 +93,6 @@ const Dashboard = ({ setIsAuthenticated }) => {
       alert('Failed to submit contact form');
     }
   };
-  
 
   const handleOrderFormSubmit = async (e) => {
     e.preventDefault();
@@ -159,7 +134,6 @@ const Dashboard = ({ setIsAuthenticated }) => {
       alert('Failed to submit order form');
     }
   };
-  
 
   const resetContactForm = () => {
     setBusinessName('');
@@ -186,153 +160,124 @@ const Dashboard = ({ setIsAuthenticated }) => {
     setPincode('');
     setAddressLine1('');
   };
-  
-  
 
   return (
-    <div className='dashboard'>
-      <div className={`sidebar ${isSidebarMinimized ? 'minimized' : ''}`}>
-        <button className='minimize-btn' onClick={toggleSidebar}>
-          {isSidebarMinimized ? <FaChevronRight /> : <FaChevronLeft />}
-        </button>
-        <ul>
-          <li>
-            <button onClick={() => navigate('/dashboard')}>
-              <FaTachometerAlt size={20} />
-              {!isSidebarMinimized && ' Dashboard'}
-            </button>
-          </li>
-          <li>
-            <button onClick={() => navigate('/manage')}>
-              <FaCogs size={20} />
-              {!isSidebarMinimized && ' Manage Auctions'}
-            </button>
-          </li>
-          <li>
-            <button onClick={() => navigate('/bids')}>
-              <FaGavel size={20} />
-              {!isSidebarMinimized && ' Bids'}
-            </button>
-          </li>
-        </ul>
-      </div>
-
-      <div className='content'>
-        <div className='navbar'>
-          <h1>A M</h1>
-          <nav>
-            <ul>
-              <li className='profile'>
-                <button className='profile-btn' onClick={toggleDropdown}>
-                  <FaUserCircle size={30} />
-                </button>
-                {isDropdownOpen && (
-                  <div className='dropdown'>
-                    <ul>
-                      <li><button onClick={handleProfile}>Profile</button></li>
-                      <li><button onClick={handleSettings}>Settings</button></li>
-                      <li><button onClick={handleLogout}>Log Out</button></li>
-                    </ul>
-                  </div>
-                )}
-              </li>
-            </ul>
-          </nav>
-        </div>
-
-        <div className='main-content'>
-          <h2>Welcome to the Bids</h2>
-          <div className='sections-container'>
-            <div className='current-section'>
-              <h3>Contact Section</h3>
-              <button className='create-event-btn' onClick={() => {
-                setShowContactForm(true);
-                setShowOrderForm(false);
-              }}>
-                Open Contact Form
+    <div className="app-container">
+      {/* <Navbar setIsAuthenticated={setIsAuthenticated} /> */}
+      <div className="main-content">
+        <Sidebar />
+        <div className="content">
+          <h2>Bids</h2>
+          <div className="sections-container">
+            <div className="current-section">
+              <h3>Contact Form</h3>
+              <button
+                className="create-event-btn"
+                onClick={() => setShowContactForm(!showContactForm)}
+              >
+                {showContactForm ? 'Hide Contact Form' : 'Show Contact Form'}
               </button>
-
               {showContactForm && (
-                <div className='event-form-wrapper'>
-                  <div className='event-form-container'>
+                <div className="form-wrapper">
+                  <form onSubmit={handleContactFormSubmit} className="contact-form-container">
                     <h3>Contact Form</h3>
-                    <form onSubmit={handleContactFormSubmit}>
+                    <div className="form-group">
                       <label>Business Name</label>
-                      <input type='text' value={businessName} onChange={(e) => setBusinessName(e.target.value)} required />
-                      <label>Owner's Name</label>
-                      <input type='text' value={ownerName} onChange={(e) => setOwnerName(e.target.value)} required />
+                      <input type="text" value={businessName} onChange={(e) => setBusinessName(e.target.value)} required />
+                    </div>
+                    <div className="form-group">
+                      <label>Owner Name</label>
+                      <input type="text" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} required />
+                    </div>
+                    <div className="form-group">
+                      <label>Contact Number</label>
+                      <input type="tel" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} required />
+                    </div>
+                    <div className="form-group">
+                      <label>Email ID</label>
+                      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                    </div>
+                    <div className="form-group">
                       <label>Business Category</label>
                       <select value={businessCategory} onChange={(e) => setBusinessCategory(e.target.value)} required>
                         <option value="">Select Category</option>
-                        <option value="Kirana Store">Kirana Store</option>
-                        <option value="Restaurant / Eatery">Restaurant / Eatery</option>
-                        <option value="Hotel / Lodge">Hotel / Lodge</option>
-                        <option value="Fast Food Center">Fast Food Center</option>
-                        <option value="Bakery/Sweet Shop">Bakery/Sweet Shop</option>
-                        <option value="Fruits & Vegetables Vendor">Fruits & Vegetables Vendor</option>
-                        <option value="Tea Stall / Thela">Tea Stall / Thela</option>
-                        <option value="Milk Dairy">Milk Dairy</option>
-                        <option value="Pan Patti">Pan Patti</option>
+                        <option value="Electronics">Electronics</option>
+                        <option value="Clothing">Clothing</option>
+                        <option value="Food & Beverage">Food & Beverage</option>
+                        <option value="Other">Other</option>
                       </select>
-                      <label>Contact Number</label>
-                      <input type='tel' value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} required />
-                      <label>Email ID</label>
-                      <input type='email' value={email} onChange={(e) => setEmail(e.target.value)} />
+                    </div>
+                    <div className="form-group">
                       <label>Address</label>
-                      <input type='text' value={addressline1} onChange={(e) => setAddressLine1(e.target.value)} required />
+                      <input type="text" value={addressline1} onChange={(e) => setAddressLine1(e.target.value)} required />
+                    </div>
+                    <div className="form-group">
                       <label>State</label>
                       <select value={selectedState} onChange={handleStateChange} required>
-                        <option value=''>Select State</option>
+                        <option value="">Select State</option>
                         {Object.keys(locationData).map((state) => (
                           <option key={state} value={state}>{state}</option>
                         ))}
                       </select>
+                    </div>
+                    <div className="form-group">
                       <label>District</label>
                       <select value={selectedDistrict} onChange={handleDistrictChange} disabled={!selectedState} required>
-                        <option value=''>Select District</option>
-                        {selectedState && Object.keys(locationData[selectedState]).map((district) => (
-                          <option key={district} value={district}>{district}</option>
-                        ))}
+                        <option value="">Select District</option>
+                        {selectedState &&
+                          Object.keys(locationData[selectedState]).map((district) => (
+                            <option key={district} value={district}>{district}</option>
+                          ))}
                       </select>
+                    </div>
+                    <div className="form-group">
                       <label>Taluka</label>
                       <select value={selectedTaluka} onChange={handleTalukaChange} disabled={!selectedDistrict} required>
-                        <option value=''>Select Taluka</option>
-                        {selectedDistrict && Object.keys(locationData[selectedState][selectedDistrict]).map((taluka) => (
-                          <option key={taluka} value={taluka}>{taluka}</option>
-                        ))}
+                        <option value="">Select Taluka</option>
+                        {selectedDistrict &&
+                          Object.keys(locationData[selectedState][selectedDistrict]).map((taluka) => (
+                            <option key={taluka} value={taluka}>{taluka}</option>
+                          ))}
                       </select>
+                    </div>
+                    <div className="form-group">
                       <label>Pincode</label>
-                      <input type='text' value={pincode} onChange={(e) => setPincode(e.target.value)} required />
-                      <button type="submit">Submit</button>
-                    </form>
-                  </div>
+                      <input type="text" value={pincode} onChange={(e) => setPincode(e.target.value)} required />
+                    </div>
+                    <button type="submit" className="btn-primary">Submit</button>
+                  </form>
                 </div>
               )}
             </div>
-
-            <div className='create-section'>
-              <h3>Order Section</h3>
-              <button className='create-event-btn' onClick={() => {
-                setShowOrderForm(true);
-                setShowContactForm(false);
-              }}>
-                Open Order Form
+            <div className="create-section">
+              <h3>Order Form</h3>
+              <button
+                className="create-event-btn"
+                onClick={() => setShowOrderForm(!showOrderForm)}
+              >
+                {showOrderForm ? 'Hide Order Form' : 'Show Order Form'}
               </button>
-
               {showOrderForm && (
-                <div className='event-form-wrapper'>
-                  <div className='event-form-container'>
+                <div className="form-wrapper">
+                  <form onSubmit={handleOrderFormSubmit} className="order-form-container">
                     <h3>Order Form</h3>
-                    <form onSubmit={handleOrderFormSubmit}>
+                    <div className="form-group">
                       <label>Business Name</label>
-                      <input type='text' value={businessName} onChange={(e) => setBusinessName(e.target.value)} required />
-                      <label>Owner's Name</label>
-                      <input type='text' value={ownerName} onChange={(e) => setOwnerName(e.target.value)} required />
+                      <input type="text" value={businessName} onChange={(e) => setBusinessName(e.target.value)} required />
+                    </div>
+                    <div className="form-group">
+                      <label>Owner Name</label>
+                      <input type="text" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} required />
+                    </div>
+                    <div className="form-group">
                       <label>Contact Number</label>
-                      <input type='tel' value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} required />
+                      <input type="tel" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} required />
+                    </div>
+                    <div className="form-group">
                       <label>Email ID</label>
-                      <input type='email' value={email} onChange={(e) => setEmail(e.target.value)} />
-                      
+                      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                    </div>
+                    <div className="form-group">
                       <label>Quantity</label>
                       <table>
                         <thead>
@@ -381,48 +326,58 @@ const Dashboard = ({ setIsAuthenticated }) => {
                           ))}
                         </tbody>
                       </table>
-
-                      {orderItems.length > 0 && (
-                        <div className="order-summary" style={{ marginTop: '20px' }}>
-                          <h4>Selected Items</h4>
-                          <ul>
-                            {orderItems.map((item, index) => (
-                              <li key={index}>
-                                {item.quantity} × {item.weight}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
+                    </div>
+                    {orderItems.length > 0 && (
+                      <div className="order-summary" style={{ marginTop: '20px' }}>
+                        <h4>Selected Items</h4>
+                        <ul>
+                          {orderItems.map((item, index) => (
+                            <li key={index}>
+                              {item.quantity} × {item.weight}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    <div className="form-group">
                       <label>Address</label>
-                      <input type='text' value={addressline1} onChange={(e) => setAddressLine1(e.target.value)} required />
+                      <input type="text" value={addressline1} onChange={(e) => setAddressLine1(e.target.value)} required />
+                    </div>
+                    <div className="form-group">
                       <label>State</label>
                       <select value={selectedState} onChange={handleStateChange} required>
-                        <option value=''>Select State</option>
+                        <option value="">Select State</option>
                         {Object.keys(locationData).map((state) => (
                           <option key={state} value={state}>{state}</option>
                         ))}
                       </select>
+                    </div>
+                    <div className="form-group">
                       <label>District</label>
                       <select value={selectedDistrict} onChange={handleDistrictChange} disabled={!selectedState} required>
-                        <option value=''>Select District</option>
-                        {selectedState && Object.keys(locationData[selectedState]).map((district) => (
-                          <option key={district} value={district}>{district}</option>
-                        ))}
+                        <option value="">Select District</option>
+                        {selectedState &&
+                          Object.keys(locationData[selectedState]).map((district) => (
+                            <option key={district} value={district}>{district}</option>
+                          ))}
                       </select>
+                    </div>
+                    <div className="form-group">
                       <label>Taluka</label>
                       <select value={selectedTaluka} onChange={handleTalukaChange} disabled={!selectedDistrict} required>
-                        <option value=''>Select Taluka</option>
-                        {selectedDistrict && Object.keys(locationData[selectedState][selectedDistrict]).map((taluka) => (
-                          <option key={taluka} value={taluka}>{taluka}</option>
-                        ))}
+                        <option value="">Select Taluka</option>
+                        {selectedDistrict &&
+                          Object.keys(locationData[selectedState][selectedDistrict]).map((taluka) => (
+                            <option key={taluka} value={taluka}>{taluka}</option>
+                          ))}
                       </select>
+                    </div>
+                    <div className="form-group">
                       <label>Pincode</label>
-                      <input type='text' value={pincode} onChange={(e) => setPincode(e.target.value)} required />
-                      <button type='submit'>Submit</button>
-                    </form>
-                  </div>
+                      <input type="text" value={pincode} onChange={(e) => setPincode(e.target.value)} required />
+                    </div>
+                    <button type="submit" className="btn-primary">Submit</button>
+                  </form>
                 </div>
               )}
             </div>
@@ -433,4 +388,4 @@ const Dashboard = ({ setIsAuthenticated }) => {
   );
 };
 
-export default Dashboard;
+export default Bids;

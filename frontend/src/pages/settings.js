@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import './dashboard.css';
+import './App.css';
 import {
   FaUserCircle,
   FaChevronLeft,
