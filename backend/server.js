@@ -45,7 +45,7 @@ connectDB();
 app.get('/', (req, res) => {
   res.status(200).json({ message: '✅ Backend is running' });
 });
-app.use('/', authRoutes); // Auth routes at root (e.g., /login, /create-account)
+app.use('/', authRoutes); // Auth routes at root (e.g., /login, /create-account, /create-order, /verify-payment)
 app.use('/', orderRoutes); // Order routes at root (e.g., /submit-order)
 app.use('/api/contact', contactRoutes);
 app.use('/api', eventRoutes);

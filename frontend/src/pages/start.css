@@ -121,7 +121,7 @@
   border: 2px solid #ccc;
   padding: 15px;
   border-radius: 8px;
-  width: 350px;
+  width: 100%;
   transition: all 0.3s ease;
   cursor: pointer;
   background-color: #f9f9f9;
@@ -129,6 +129,7 @@
 
 .candidate-card-horizontal:hover {
   border-color: #2E7D32; /* Dark green */
+  background-color: #5a9ac0; 
 }
 
 .candidate-card-horizontal.selected {
@@ -184,8 +185,8 @@
 
 /* Green highlight while beep is playing */
 .candidate-card-horizontal.selected.highlighted {
-  background-color: #c8e6c9; /* light green */
-  border-color: #2E7D32; /* Dark green */
+  background-color: #85d688; /* light green */
+  border-color: #034907; /* Dark green */
 }
 
 
