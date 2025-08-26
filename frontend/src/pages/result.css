@@ -3,47 +3,84 @@
   margin: 0 auto;
   padding: 20px;
   font-family: Arial, sans-serif;
+  background-color: #f4f4f4; /* Matching start.css background */
 }
 
 .result-container h1 {
   text-align: center;
-  color: #333;
+  color: #333; /* Black for readability */
+  font-size: 2.5rem; /* Consistent with start.css */
+  margin-bottom: 20px;
 }
 
 .result-container p {
   font-size: 16px;
-  color: #555;
+  color: #333; /* Black for readability */
+  margin: 10px 0; /* Consistent spacing */
 }
 
 .result-container h2 {
   margin-top: 20px;
-  color: #333;
+  color: #333; /* Black for readability */
+  font-size: 1.8rem; /* Slightly smaller than h1 for hierarchy */
 }
 
 .result-container table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 10px;
+  background-color: #f9f9f9; /* Soft background from start.css */
 }
 
 .result-container th,
 .result-container td {
-  border: 1px solid #ddd;
-  padding: 8px;
+  border: 1px solid #e0e0e0; /* Softer border color */
+  padding: 10px 12px; /* Slightly more padding for comfort */
   text-align: left;
+  font-size: 15px; /* Slightly smaller for table text */
+  color: #333; /* Black for readability */
 }
 
 .result-container th {
-  background-color: #f2f2f2;
-  color: #333;
+  background-color: #e8f5e9; /* Light green from start.css */
+  color: #333; /* Black for readability */
+  font-weight: bold;
 }
 
 .result-container td img {
   display: block;
   margin: 0 auto;
+  max-width: 100px;
+  height: auto;
+  border-radius: 5px; /* Consistent with start.css image styling */
 }
 
 .result-container .error-message {
-  color: red;
+  color: #d32f2f; /* Softer red for errors, consistent with start.css */
   text-align: center;
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+.result-container .winner {
+  background-color: #fff8e1; /* Light gold for winner */
+  font-weight: bold;
+  border: 2px solid #ffd700; /* Gold border for emphasis */
+}
+
+.print-button {
+  display: block;
+  margin: 20px auto;
+  padding: 10px 20px;
+  font-size: 1rem;
+  background-color: #2E7D32; /* Dark green from start.css */
+  color: white;
+  border: none;
+  border-radius: 5px; /* Consistent with start.css */
+  cursor: pointer;
+  transition: background-color 0.3s ease; /* Smooth transition */
+}
+
+.print-button:hover {
+  background-color: #27632a; /* Slightly darker green on hover, from start.css */
 }

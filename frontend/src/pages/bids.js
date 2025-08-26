@@ -165,7 +165,7 @@ const Bids = ({ setIsAuthenticated }) => {
     <div className="app-container">
       {/* <Navbar setIsAuthenticated={setIsAuthenticated} /> */}
       <div className="main-content">
-        <Sidebar />
+      <Sidebar setIsAuthenticated={setIsAuthenticated} />
         <div className="content">
           <h2>Bids</h2>
           <div className="sections-container">

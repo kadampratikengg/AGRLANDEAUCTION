@@ -1,18 +1,9 @@
 import React, { useState } from 'react';
-import './App.css';
-import {
-  FaUserCircle,
-  FaChevronLeft,
-  FaChevronRight,
-  FaTachometerAlt,
-  FaCogs,
-  FaGavel,
-} from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
+import Sidebar from './Sidebar';
+import './App.css';
 
 const Settings = ({ setIsAuthenticated }) => {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isSidebarMinimized, setIsSidebarMinimized] = useState(true);
   const [subUserEmail, setSubUserEmail] = useState('');
   const [subUserPassword, setSubUserPassword] = useState('');
   const [subUserPermissions, setSubUserPermissions] = useState({
@@ -22,30 +13,6 @@ const Settings = ({ setIsAuthenticated }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const navigate = useNavigate();
-
-  const toggleDropdown = () => {
-    setIsDropdownOpen((prevState) => !prevState);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('token');
-    localStorage.removeItem('userId');
-    setIsAuthenticated(false);
-    navigate('/');
-  };
-
-  const handleProfile = () => {
-    navigate('/profile');
-  };
-
-  const handleSettings = () => {
-    navigate('/settings');
-  };
-
-  const toggleSidebar = () => {
-    setIsSidebarMinimized((prevState) => !prevState);
-  };
 
   const handleCreateSubUser = async (e) => {
     e.preventDefault();
@@ -85,63 +52,17 @@ const Settings = ({ setIsAuthenticated }) => {
       setSubUserEmail('');
       setSubUserPassword('');
       setSubUserPermissions({ voting: true, manage: true });
+      navigate('/dashboard'); // Redirect to dashboard after success
     } catch (err) {
       setError(err.message);
     }
   };
 
   return (
-    <div className='dashboard'>
-      <div className={`sidebar ${isSidebarMinimized ? 'minimized' : ''}`}>
-        <button className='minimize-btn' onClick={toggleSidebar}>
-          {isSidebarMinimized ? <FaChevronRight /> : <FaChevronLeft />}
-        </button>
-        <ul>
-          <li>
-            <button onClick={() => navigate('/dashboard')}>
-              <FaTachometerAlt size={20} />
-              {!isSidebarMinimized && 'Dashboard'}
-            </button>
-          </li>
-          <li>
-            <button onClick={() => navigate('/manage')}>
-              <FaCogs size={20} />
-              {!isSidebarMinimized && 'Manage Auctions'}
-            </button>
-          </li>
-          <li>
-            <button onClick={() => navigate('/bids')}>
-              <FaGavel size={20} />
-              {!isSidebarMinimized && 'Bids'}
-            </button>
-          </li>
-        </ul>
-      </div>
-
-      <div className='content'>
-        <div className='navbar'>
-          <h1>A M</h1>
-          <nav>
-            <ul>
-              <li className='profile'>
-                <button className='profile-btn' onClick={toggleDropdown}>
-                  <FaUserCircle size={30} />
-                </button>
-                {isDropdownOpen && (
-                  <div className='dropdown'>
-                    <ul>
-                      <li><button onClick={handleProfile}>Profile</button></li>
-                      <li><button onClick={handleSettings}>Settings</button></li>
-                      <li><button onClick={handleLogout}>Log Out</button></li>
-                    </ul>
-                  </div>
-                )}
-              </li>
-            </ul>
-          </nav>
-        </div>
-
-        <div className='main-content'>
+    <div className="app-container">
+      <div className="main-content">
+        <Sidebar setIsAuthenticated={setIsAuthenticated} />
+        <div className="content">
           <h2>Settings</h2>
           <div className="sub-user-section">
             <h3>Create Sub-User</h3>

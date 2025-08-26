@@ -29,7 +29,7 @@ const Sidebar = ({ setIsAuthenticated }) => {
     localStorage.removeItem('token');
     localStorage.removeItem('userId');
     setIsAuthenticated && setIsAuthenticated(false);
-    navigate('/');
+    navigate('/', { replace: true });
   };
 
 

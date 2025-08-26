@@ -327,7 +327,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     <div className="app-container">
       {/* <Navbar setIsAuthenticated={setIsAuthenticated} /> */}
       <div className="main-content">
-        <Sidebar />
+      <Sidebar setIsAuthenticated={setIsAuthenticated} />
         <div className="content">
           <h2>Events</h2>
           <div className="sections-container">

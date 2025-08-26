@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-// import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import './App.css';
 
-const Profile = () => {
+const Profile = ({ setIsAuthenticated }) => {
   const [userData, setUserData] = useState({
     username: '',
     name: '',
@@ -97,9 +96,8 @@ const Profile = () => {
 
   return (
     <div className="app-container">
-      {/* <Navbar /> */}
       <div className="main-content">
-        <Sidebar />
+        <Sidebar setIsAuthenticated={setIsAuthenticated} />
         <div className="profile-container">
           <h2>User Profile</h2>
           {loading && <p>Loading...</p>}
