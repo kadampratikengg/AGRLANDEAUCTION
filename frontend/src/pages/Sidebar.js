@@ -11,19 +11,6 @@ const Sidebar = ({ setIsAuthenticated }) => {
     setIsMinimized(!isMinimized);
   };
 
-  // const handleLogout = () => {
-  //   // Clear localStorage
-  //   localStorage.removeItem('isAuthenticated');
-  //   localStorage.removeItem('token');
-  //   localStorage.removeItem('userId');
-  //   // Update authentication state if setIsAuthenticated is provided and is a function
-  //   if (typeof setIsAuthenticated === 'function') {
-  //     setIsAuthenticated(false);
-  //   }
-  //   // Navigate to root (LoginPage)
-  //   navigate('/', { replace: true });
-  // };
-
   const handleLogout = () => {
     localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('token');

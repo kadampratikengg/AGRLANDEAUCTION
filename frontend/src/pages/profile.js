@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Sidebar from './Sidebar';
 import './App.css';
+import { Widget } from '@uploadcare/react-widget';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const Profile = ({ setIsAuthenticated }) => {
   const [userData, setUserData] = useState({
@@ -11,19 +14,24 @@ const Profile = ({ setIsAuthenticated }) => {
     logo: '',
     contact: '',
     email: '',
-    phone: ''
+    phone: '',
+    address: '',
+    state: '',
+    district: '',
+    pincode: '',
+    gstNumber: ''
   });
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState('');
-  const [logoFile, setLogoFile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const uploadcarePublicKey = process.env.REACT_APP_UPLOADCARE_PUBLIC_KEY;
 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/user/profile`, {
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/users`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         setUserData(response.data);
@@ -44,8 +52,64 @@ const Profile = ({ setIsAuthenticated }) => {
     setUserData({ ...userData, [name]: value });
   };
 
-  const handleLogoChange = (e) => {
-    setLogoFile(e.target.files[0]);
+  const handlePincodeChange = async (e) => {
+    const pincode = e.target.value;
+    setUserData({ ...userData, pincode });
+    if (pincode.length === 6) {
+      try {
+        const response = await axios.get(`https://api.postalpincode.in/pincode/${pincode}`);
+        const data = response.data[0];
+        if (data.Status === 'Success') {
+          const { District, State } = data.PostOffice[0];
+          setUserData((prev) => ({ ...prev, district: District, state: State }));
+        } else {
+          setMessage('Invalid pincode');
+        }
+      } catch (error) {
+        setMessage('Error fetching pincode data');
+      }
+    }
+  };
+
+  const handleLogoUpload = (fileInfo) => {
+    if (fileInfo && fileInfo.uuid && fileInfo.cdnUrl) {
+      setUserData((prev) => ({ ...prev, logo: fileInfo.uuid }));
+    } else {
+      setMessage('Error uploading logo');
+    }
+  };
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+
+    if (newPassword !== confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No authentication token found');
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/change-password`, {
+        newPassword
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.data;
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to change password');
+      }
+
+      toast.success('Password changed successfully');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      toast.error(err.message);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -56,125 +120,30 @@ const Profile = ({ setIsAuthenticated }) => {
         formData.append(key, userData[key]);
       }
     }
-    if (logoFile) {
-      formData.append('logo', logoFile);
-    }
 
     try {
-      const response = await axios.put(`${process.env.REACT_APP_API_URL}/api/user/profile`, formData, {
+      const response = await axios.put(`${process.env.REACT_APP_API_URL}/api/users`, formData, {
         headers: { 
           Authorization: `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'multipart/form-data'
         }
       });
       setUserData(response.data);
-      setMessage('Profile updated successfully');
+      toast.success('Profile updated successfully');
     } catch (error) {
-      setMessage('Error updating profile');
-    }
-  };
-
-  const handlePasswordChange = async (e) => {
-    e.preventDefault();
-    if (newPassword !== confirmPassword) {
-      setMessage('Passwords do not match');
-      return;
-    }
-
-    try {
-      await axios.put(`${process.env.REACT_APP_API_URL}/api/user/password`, 
-        { password: newPassword },
-        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
-      );
-      setMessage('Password updated successfully');
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch (error) {
-      setMessage('Error updating password');
+      toast.error('Error updating profile');
     }
   };
 
   return (
     <div className="app-container">
+      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} closeOnClick draggable pauseOnHover />
       <div className="main-content">
         <Sidebar setIsAuthenticated={setIsAuthenticated} />
-        <div className="profile-container">
+        <div className="content">
           <h2>User Profile</h2>
           {loading && <p>Loading...</p>}
           {message && <p className="message">{message}</p>}
-          
-          <form onSubmit={handleSubmit} className="profile-form">
-            <div className="form-group">
-              <label>Username (cannot be changed):</label>
-              <input
-                type="text"
-                value={userData.username}
-                disabled
-                className="form-control"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Full Name:</label>
-              <input
-                type="text"
-                name="name"
-                value={userData.name}
-                onChange={handleInputChange}
-                className="form-control"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Organization Name:</label>
-              <input
-                type="text"
-                name="organization"
-                value={userData.organization}
-                onChange={handleInputChange}
-                className="form-control"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Organization Logo:</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleLogoChange}
-                className="form-control"
-              />
-              {userData.logo && (
-                <img src={userData.logo} alt="Organization Logo" className="org-logo" />
-              )}
-            </div>
-
-            <div className="form-group">
-              <label>Contact Email:</label>
-              <input
-                type="email"
-                name="email"
-                value={userData.email}
-                onChange={handleInputChange}
-                className="form-control"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Phone Number:</label>
-              <input
-                type="tel"
-                name="phone"
-                value={userData.phone}
-                onChange={handleInputChange}
-                className="form-control"
-              />
-            </div>
-
-            <button type="submit" className="btn btn-primary">Update Profile</button>
-          </form>
-
           <form onSubmit={handlePasswordChange} className="password-form">
             <h3>Change Password</h3>
             <div className="form-group">
@@ -187,7 +156,6 @@ const Profile = ({ setIsAuthenticated }) => {
                 required
               />
             </div>
-
             <div className="form-group">
               <label>Confirm Password:</label>
               <input
@@ -198,8 +166,157 @@ const Profile = ({ setIsAuthenticated }) => {
                 required
               />
             </div>
+            <div className="form-actions">
+              <button type="submit" className="btn btn-primary">Change Password</button>
+            </div>
+          </form>
+          
+          <form onSubmit={handleSubmit} className="profile-form">
+            <div className="form-container">
+              <div className="form-left">
+                <div className="form-group">
+                  <label>Username:</label>
+                  <input
+                    type="text"
+                    value={userData.username}
+                    disabled
+                    className="form-control"
+                  />
+                </div>
 
-            <button type="submit" className="btn btn-primary">Change Password</button>
+                <div className="form-group">
+                  <label>Full Name:</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={userData.name}
+                    onChange={handleInputChange}
+                    className="form-control"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Organization Name:</label>
+                  <input
+                    type="text"
+                    name="organization"
+                    value={userData.organization}
+                    onChange={handleInputChange}
+                    className="form-control"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Contact Email:</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={userData.email}
+                    onChange={handleInputChange}
+                    className="form-control"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Phone Number:</label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={userData.phone}
+                    onChange={handleInputChange}
+                    className="form-control"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Address:</label>
+                  <input
+                    type="text"
+                    name="address"
+                    value={userData.address}
+                    onChange={handleInputChange}
+                    className="form-control"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Pincode:</label>
+                  <input
+                    type="text"
+                    name="pincode"
+                    value={userData.pincode}
+                    onChange={handlePincodeChange}
+                    className="form-control"
+                    maxLength="6"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>District:</label>
+                  <input
+                    type="text"
+                    name="district"
+                    value={userData.district}
+                    onChange={handleInputChange}
+                    className="form-control"
+                    disabled
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>State:</label>
+                  <input
+                    type="text"
+                    name="state"
+                    value={userData.state}
+                    onChange={handleInputChange}
+                    className="form-control"
+                    disabled
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>GST Number:</label>
+                  <input
+                    type="text"
+                    name="gstNumber"
+                    value={userData.gstNumber}
+                    onChange={handleInputChange}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="form-right">
+                <div className="form-group">
+                  <label>Organization Logo:</label>
+                  {uploadcarePublicKey ? (
+                    <Widget
+                      publicKey={uploadcarePublicKey}
+                      onChange={handleLogoUpload}
+                      clearable
+                      imagesOnly
+                      crop="1:1"
+                      maxFileSize={2000000}
+                    />
+                  ) : (
+                    <p style={{ color: 'red' }}>
+                      Image upload disabled: Uploadcare public key missing. Check .env configuration.
+                    </p>
+                  )}
+                  {userData.logo && (
+                    <img
+                      src={`https://ucarecdn.com/${userData.logo}/-/preview/-/scale_crop/200x200/center/`}
+                      alt="Organization Logo"
+                      className="org-logo circle"
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" className="btn btn-primary">Update Profile</button>
           </form>
         </div>
       </div>

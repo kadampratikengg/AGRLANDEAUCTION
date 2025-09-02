@@ -9,6 +9,8 @@ const authRoutes = require('./routes/auth');
 const contactRoutes = require('./routes/contact');
 const orderRoutes = require('./routes/order');
 const eventRoutes = require('./routes/event');
+const profileRoutes = require('./routes/profile');
+const subUserRoutes = require('./routes/sub-users');
 const { errorHandler, multerErrorHandler } = require('./middleware/error');
 
 const app = express();
@@ -49,6 +51,8 @@ app.use('/', authRoutes); // Auth routes at root (e.g., /login, /create-account,
 app.use('/', orderRoutes); // Order routes at root (e.g., /submit-order)
 app.use('/api/contact', contactRoutes);
 app.use('/api', eventRoutes);
+app.use('/', profileRoutes); // Profile routes (e.g., /api/users)
+app.use('/', subUserRoutes); // Sub-user routes (e.g., /api/sub-users)
 
 // Serve uploaded files
 app.use('/Uploads', express.static('Uploads'));
