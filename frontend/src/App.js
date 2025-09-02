@@ -11,30 +11,25 @@ import Profile from './pages/profile';
 import Voting from './pages/Voting';
 import Start from './pages/start';
 import Result from './pages/result';
+import PlansPage from './components/PlansPage';   // ✅ fixed
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Check if the user is authenticated when the app loads
   useEffect(() => {
-    // Retrieve authentication state from localStorage
     const storedAuthState = localStorage.getItem('isAuthenticated');
-
-    // If storedAuthState is not null or not 'true', consider user as unauthenticated
     setIsAuthenticated(storedAuthState === 'true');
   }, []);
 
-  // Handle login and store the authentication state in localStorage
   const handleLogin = () => {
     setIsAuthenticated(true);
-    localStorage.setItem('isAuthenticated', 'true'); // Save authentication state to localStorage
+    localStorage.setItem('isAuthenticated', 'true');
   };
 
   return (
     <Router>
       <div className='App'>
         <Routes>
-          {/* If the user is authenticated, redirect them to /dashboard */}
           {isAuthenticated ? (
             <>
               <Route path='/' element={<Navigate to='/dashboard' />} />
@@ -43,15 +38,16 @@ const App = () => {
               <Route path='/bids' element={<Bids setIsAuthenticated={setIsAuthenticated} />} />
               <Route path='/profile' element={<Profile setIsAuthenticated={setIsAuthenticated} />} />
               <Route path='/settings' element={<Settings setIsAuthenticated={setIsAuthenticated} />} />
-              <Route path="/voting/:eventId" element={<Voting setIsAuthenticated={setIsAuthenticated}/>} />
-              <Route path="/voting/:eventId/start" element={<Start setIsAuthenticated={setIsAuthenticated}/>} />
-              <Route path="/results/:eventId" element={<Result setIsAuthenticated={setIsAuthenticated}/>} /> {/* Add Results route */}
+              <Route path='/voting/:eventId' element={<Voting setIsAuthenticated={setIsAuthenticated} />} />
+              <Route path='/voting/:eventId/start' element={<Start setIsAuthenticated={setIsAuthenticated} />} />
+              <Route path='/results/:eventId' element={<Result setIsAuthenticated={setIsAuthenticated} />} />
             </>
           ) : (
             <>
               <Route path='/' element={<LoginPage onLogin={handleLogin} />} />
               <Route path='/create-account' element={<CreateAccountPage />} />
               <Route path='/forgot-password' element={<ForgotPasswordPage />} />
+              <Route path='/planespage' element={<PlansPage />} />   {/* ✅ fixed */}
             </>
           )}
         </Routes>

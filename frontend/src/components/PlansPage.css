@@ -1,0 +1,90 @@
+.plans-page {
+    padding: 30px;
+    max-width: 1200px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  
+  .plans-title {
+    font-size: 24px;
+    margin-bottom: 30px;
+    color: #333;
+  }
+  
+  .plans-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  
+  .plan-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    flex: 1;
+    min-width: 280px;
+    max-width: 350px;
+    padding: 20px;
+    text-align: center;
+    transition: transform 0.2s ease-in-out;
+  }
+  
+  .plan-card:hover {
+    transform: translateY(-5px);
+  }
+  
+  .plan-card h3 {
+    font-size: 20px;
+    margin-bottom: 10px;
+    color: #222;
+  }
+  
+  .plan-price {
+    font-size: 28px;
+    font-weight: bold;
+    color: #3399cc;
+    margin: 10px 0;
+  }
+  
+  .plan-subtext {
+    font-size: 14px;
+    color: #777;
+  }
+  
+  .plan-validity {
+    margin: 10px 0;
+    font-weight: 500;
+    color: #444;
+  }
+  
+  .plan-description {
+    font-size: 14px;
+    color: #555;
+    margin: 10px 0 20px 0;
+  }
+  
+  .plan-card button {
+    padding: 10px 20px;
+    background: #3399cc;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s ease-in-out;
+  }
+  
+  .plan-card button:hover:not(:disabled) {
+    background: #287aa9;
+  }
+  
+  .plan-card button:disabled {
+    background: #aaa;
+    cursor: not-allowed;
+  }
+  
+  .error {
+    color: red;
+    margin-top: 20px;
+  }
+  

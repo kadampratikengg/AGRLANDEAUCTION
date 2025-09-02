@@ -5,6 +5,7 @@ import './App.css';
 import { Widget } from '@uploadcare/react-widget';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { useNavigate } from 'react-router-dom';
 
 const Profile = ({ setIsAuthenticated }) => {
   const [userData, setUserData] = useState({
@@ -21,11 +22,18 @@ const Profile = ({ setIsAuthenticated }) => {
     pincode: '',
     gstNumber: ''
   });
+  const [subscriptionData, setSubscriptionData] = useState({
+    planDuration: '',
+    startDate: '',
+    endDate: '',
+    isValid: false
+  });
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const uploadcarePublicKey = process.env.REACT_APP_UPLOADCARE_PUBLIC_KEY;
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -35,6 +43,12 @@ const Profile = ({ setIsAuthenticated }) => {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         setUserData(response.data);
+        setSubscriptionData({
+          planDuration: response.data.subscription?.duration || 'No active subscription',
+          startDate: response.data.subscription?.startDate || '',
+          endDate: response.data.subscription?.endDate || '',
+          isValid: response.data.isValidSubscription || false
+        });
         setMessage('');
       } catch (error) {
         setMessage(error.response?.status === 404 
@@ -135,6 +149,10 @@ const Profile = ({ setIsAuthenticated }) => {
     }
   };
 
+  const handleSubscriptionUpdate = () => {
+    navigate('../components/PlansPage', { state: { email: userData.email, userId: localStorage.getItem('userId') } });
+  };
+
   return (
     <div className="app-container">
       <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} closeOnClick draggable pauseOnHover />
@@ -144,6 +162,20 @@ const Profile = ({ setIsAuthenticated }) => {
           <h2>User Profile</h2>
           {loading && <p>Loading...</p>}
           {message && <p className="message">{message}</p>}
+          <div className="subscription-details">
+            <h3>Subscription Details</h3>
+            <p>Plan: {subscriptionData.planDuration}</p>
+            {subscriptionData.startDate && (
+              <p>Start Date: {new Date(subscriptionData.startDate).toLocaleDateString()}</p>
+            )}
+            {subscriptionData.endDate && (
+              <p>End Date: {new Date(subscriptionData.endDate).toLocaleDateString()}</p>
+            )}
+            <p>Status: {subscriptionData.isValid ? 'Active' : 'Inactive'}</p>
+            <button onClick={handleSubscriptionUpdate} className="btn btn-primary">
+              {subscriptionData.isValid ? 'Update Subscription' : 'Purchase Subscription'}
+            </button>
+          </div>
           <form onSubmit={handlePasswordChange} className="password-form">
             <h3>Change Password</h3>
             <div className="form-group">
@@ -320,6 +352,27 @@ const Profile = ({ setIsAuthenticated }) => {
           </form>
         </div>
       </div>
+      <style>
+        {`
+          .subscription-details {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f9f9f9;
+          }
+          .subscription-details h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+          }
+          .subscription-details p {
+            margin: 5px 0;
+          }
+          .subscription-details button {
+            margin-top: 10px;
+          }
+        `}
+      </style>
     </div>
   );
 };
