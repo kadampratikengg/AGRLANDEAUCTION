@@ -35,10 +35,8 @@ export const initiatePayment = async (
   setLoading(true);
   try {
     const orderPayload = {
-      amount: plan.total * 100,
+      amount: plan.total * 100, // Convert to paise
       currency: 'INR',
-      planDuration: plan.duration,
-      validityDays: plan.validityDays,
     };
     console.log('Creating order with payload:', orderPayload);
     const response = await axios.post(
@@ -70,8 +68,8 @@ export const initiatePayment = async (
             email,
             userId,
             planDuration: plan.duration,
+            amount: plan.total * 100, // Send amount in paise
             validityDays: plan.validityDays,
-            amount: plan.total,
             ...additionalData,
           };
           console.log('Verifying payment with payload:', verifyPayload);

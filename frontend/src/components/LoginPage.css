@@ -1,67 +1,102 @@
 /* LoginPage.css */
 
 .login-page {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    background-color: #ecf0f1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #ecf0f1;
+}
+
+.create-account-page {
+  max-width: 800px;
+  margin: 20px auto 0;
+  padding: 0 20px;
+  overflow: auto;
+  background-color: #ecf0f1;
+}
+
+form {
+  background-color: white;
+  padding: 30px;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+form h2 {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.input-field {
+  margin-bottom: 20px;
+}
+
+.input-field label {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.input-field input {
+  width: 100%;
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+
+button {
+  width: 100%;
+  padding: 10px;
+  background-color: #2c3e50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #34495e;
+}
+
+.links {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.links a {
+  color: #2c3e50;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.links a:hover {
+  text-decoration: underline;
+}
+
+
+
+.create-account-page .form-left,
+.create-account-page .form-right {
+  flex: 1;
+  min-width: 300px;
+}
+
+.create-account-page .error {
+  color: red;
+  font-size: 0.9em;
+  margin-top: 5px;
+}
+
+@media (max-width: 600px) {
+  .create-account-page {
+      margin-top: 100px;
+      padding: 0 10px;
   }
-  
-  form {
-    background-color: white;
-    padding: 30px;
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  .create-account-page .create-account-form {
+      padding: 20px;
   }
-  
-  form h2 {
-    margin-bottom: 20px;
-    text-align: center;
+  .create-account-page .form-left,
+  .create-account-page .form-right {
+      min-width: 100%;
   }
-  
-  .input-field {
-    margin-bottom: 20px;
-  }
-  
-  .input-field label {
-    display: block;
-    margin-bottom: 5px;
-  }
-  
-  .input-field input {
-    width: 100%;
-    padding: 10px;
-    border-radius: 5px;
-    border: 1px solid #ccc;
-  }
-  
-  button {
-    width: 100%;
-    padding: 10px;
-    background-color: #2c3e50;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-  }
-  
-  button:hover {
-    background-color: #34495e;
-  }
-  
-  .links {
-    text-align: center;
-    margin-top: 20px;
-  }
-  
-  .links a {
-    color: #2c3e50;
-    text-decoration: none;
-    font-weight: bold;
-  }
-  
-  .links a:hover {
-    text-decoration: underline;
-  }
-  
+}

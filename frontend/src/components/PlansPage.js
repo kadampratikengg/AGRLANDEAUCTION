@@ -15,9 +15,9 @@ const PlansPage = () => {
   const confirmPassword = state?.confirmPassword || '';
 
   const plans = [
-    { duration: '1 Month', amount: 1000, validityDays: 30, description: 'Basic plan suitable for short-term usage.' },
-    { duration: '3 Months', amount: 3000, validityDays: 90, description: 'Standard plan with better savings.' },
-    { duration: '6 Months', amount: 6000, validityDays: 180, description: 'Best value for long-term users.' },
+    { duration: '1 Month', amount: 1000, validityDays: 30, description: 'Basic plan for short-term usage.' },
+    { duration: '3 Month', amount: 3000, validityDays: 90, description: 'Standard plan with better savings.' },
+    { duration: '6 Month', amount: 6000, validityDays: 180, description: 'Best value for long-term users.' },
   ];
 
   useEffect(() => {
@@ -65,7 +65,7 @@ const PlansPage = () => {
 
           return (
             <div key={plan.duration} className="plan-card">
-              <h3>{plan.duration}</h3>
+              <h3>{plan.duration.charAt(0).toUpperCase() + plan.duration.slice(1)}</h3>
               <p className="plan-price">₹{total.toFixed(2)}</p>
               <p className="plan-subtext">Base Price: ₹{plan.amount}</p>
               <p className="plan-subtext">+ 18% GST: ₹{gst.toFixed(2)}</p>

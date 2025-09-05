@@ -1,0 +1,151 @@
+.app-container {
+    display: flex;
+    min-height: 100vh;
+  }
+  
+  .main-content {
+    flex: 1;
+    display: flex;
+  }
+  
+  .content {
+    flex: 1;
+    padding: 20px;
+  }
+  
+  .error {
+    color: red;
+    margin-top: 5px;
+  }
+  
+  .password-form, .profile-form {
+    margin-bottom: 20px;
+  }
+  
+  .form-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 50px;
+  }
+  
+  .form-column {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .form-group {
+    margin-bottom: 15px;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 5px;
+  }
+  
+  .form-control {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+  
+  .form-actions {
+    margin-top: 10px;
+    grid-column: 1 / -1;
+    text-align: center;
+  }
+  
+  .btn.btn-primary, .btn.btn-secondary, .btn.btn-invoice {
+    padding: 10px 20px;
+    margin: 10px 0;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  
+  .btn.btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+    width: 500px;
+    margin: 20px auto; 
+    color: white;
+  }
+  
+  .btn.btn-secondary {
+    background-color: #28a745;
+    border-color: #28a745;
+    width: 290px;
+    color: white;
+  }
+  
+  .btn.btn-invoice {
+    background-color: #007bff;
+    border-color: #007bff;
+    color: white;
+  }
+  
+  .org-logo.circle {
+    width: 200px;
+    height: 200px;
+    object-fit: cover;
+    border-radius: 50%;
+    margin-top: 10px;
+  }
+  
+  .subscription-history {
+    margin-top: 30px;
+  }
+  
+  .history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+  }
+  
+  .history-container {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 10px;
+    gap: 15px;
+  }
+  
+  .subscription-card {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 500px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  
+  .subscription-card p {
+    margin: 5px 0;
+    font-size: 16px;
+  }
+  
+  @media (max-width: 768px) {
+    .form-container {
+      grid-template-columns: 1fr;
+    }
+  
+    .subscription-card {
+      max-width: 100%;
+    }
+  
+    .history-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  
+    .history-header h3 {
+      margin-bottom: 10px;
+    }
+  
+    .btn.btn-secondary {
+      width: 100%;
+      text-align: center;
+    }
+  }

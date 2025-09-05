@@ -41,13 +41,14 @@ const App = () => {
               <Route path='/voting/:eventId' element={<Voting setIsAuthenticated={setIsAuthenticated} />} />
               <Route path='/voting/:eventId/start' element={<Start setIsAuthenticated={setIsAuthenticated} />} />
               <Route path='/results/:eventId' element={<Result setIsAuthenticated={setIsAuthenticated} />} />
+              <Route path='/planspage' element={<PlansPage setIsAuthenticated={setIsAuthenticated} />} /> 
             </>
           ) : (
             <>
               <Route path='/' element={<LoginPage onLogin={handleLogin} />} />
               <Route path='/create-account' element={<CreateAccountPage />} />
               <Route path='/forgot-password' element={<ForgotPasswordPage />} />
-              <Route path='/planespage' element={<PlansPage />} />   {/* ✅ fixed */}
+              <Route path='/planspage' element={<PlansPage />} />   
             </>
           )}
         </Routes>

@@ -336,7 +336,7 @@ const Settings = ({ setIsAuthenticated }) => {
             <div className="sub-users-table">
               <div className="sub-users-header">
                 <h3>Sub-Users</h3>
-                <button className="btn btn-primary create-sub-user-btn" onClick={toggleCreateForm}>
+                <button className="btn btn-secondary create-sub-user-btn" onClick={toggleCreateForm}>
                   Create Sub-User
                 </button>
               </div>

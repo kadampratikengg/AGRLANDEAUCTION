@@ -36,7 +36,7 @@ const LoginPage = ({ onLogin }) => {
         onLogin();
       } else {
         // Redirect to PlansPage when subscription is invalid/expired
-        navigate("/planespage", {
+        navigate("/planspage", {
           state: { email, userId: response.data.userId }
         });
         setErrorMessage('Your subscription has expired. Please select a plan to continue.');
