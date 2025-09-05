@@ -65,8 +65,7 @@ router.post('/login', async (req, res) => {
       expiresIn: '2h',
     });
 
-    const today = new Date();
-    const isValidSubscription = user.subscription?.isValid && new Date(user.subscription.endDate) > today;
+    const isValidSubscription = user.subscription?.isValid && new Date(user.subscription.endDate) > new Date();
 
     console.log('✅ Login successful for email:', email);
     res.status(200).json({ 
@@ -80,8 +79,7 @@ router.post('/login', async (req, res) => {
         endDate: user.subscription.endDate,
         amount: user.subscription.amount,
         paymentId: user.subscription.paymentId,
-        orderId: user.subscription.orderId,
-        isValid: user.subscription.isValid
+        orderId: user.subscription.orderId
       } : null
     });
   } catch (error) {
@@ -188,7 +186,6 @@ router.post('/verify-payment', express.json(), async (req, res) => {
     let startDate = today;
     if (user.subscription && user.subscription.isValid && new Date(user.subscription.endDate) > today) {
       startDate = new Date(user.subscription.endDate);
-      startDate.setDate(startDate.getDate() + 1); // Start the day after the current subscription ends
     }
 
     // Calculate end date based on validityDays
@@ -209,20 +206,7 @@ router.post('/verify-payment', express.json(), async (req, res) => {
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '2h' });
 
-    res.status(200).json({ 
-      message: 'Payment verified and subscription updated', 
-      token, 
-      userId: user._id,
-      subscription: {
-        planDuration,
-        startDate,
-        endDate: subscriptionEndDate,
-        amount,
-        paymentId: razorpay_payment_id,
-        orderId: razorpay_order_id,
-        isValid: true
-      }
-    });
+    res.status(200).json({ message: 'Payment verified and subscription updated', token, userId: user._id });
   } catch (error) {
     console.error('❌ Payment verification error:', error.message, error.stack);
     res.status(500).json({ message: 'Payment verification failed' });
