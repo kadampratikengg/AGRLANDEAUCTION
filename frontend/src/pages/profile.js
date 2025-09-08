@@ -46,7 +46,7 @@ const Profile = ({ setIsAuthenticated }) => {
     const today = new Date();
     const endDate = new Date(sub.endDate);
     if (isCurrentSubscription && endDate >= today) {
-      return 'Current';
+      return 'Active Until ';
     }
     return endDate >= today ? 'Active' : 'Expired';
   };

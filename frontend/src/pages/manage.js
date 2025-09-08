@@ -447,7 +447,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                         onChange={handleFileUpload}
                       />
                       <p>File Uploaded: {fileName || 'AllDetailsFile.xlsx'}</p>
-                      <a href="../file/AllDetailsFile.xlsx" target="_blank" rel="noopener noreferrer">
+                      <a href="https://ucarecdn.com/fc73b582-f0fa-4069-aec3-d262bcae3236" target="_blank" rel="noopener noreferrer">
                         Download Sample File
                       </a>
                     </div>
