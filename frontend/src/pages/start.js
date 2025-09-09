@@ -78,7 +78,9 @@ const Start = () => {
     setSelectedCandidate(candidateName);
     setHighlightedCandidate(index);
 
-    const beep = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
+    // const beep = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
+    const beep = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+
 
     const handleVoteSubmission = async () => {
       try {
