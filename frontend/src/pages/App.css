@@ -503,6 +503,34 @@
   background-color: #0056b3;
 }
 
+.event-form-container table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.event-form-container th,
+.event-form-container td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+.event-form-container th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+}
+
+.event-form-container td img {
+  max-width: 80px;
+  height: auto;
+  border-radius: 4px;
+}
+
+.event-form-container .uploadcare--widget {
+  margin: 5px 0;
+}
+
 .event-form-wrapper {
   margin-top: 30px;
   padding: 20px;

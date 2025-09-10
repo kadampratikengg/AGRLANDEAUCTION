@@ -48,12 +48,6 @@ const Sidebar = ({ setIsAuthenticated }) => {
           </button>
         </li>
         <li>
-          <button onClick={() => navigate('/bids')}>
-            <FaGavel size={20} />
-            {!isMinimized && 'Bids'}
-          </button>
-        </li>
-        <li>
           <button onClick={handleProfile}>
             <FaUserCircle size={20} />
             {!isMinimized && 'Profile'}
@@ -63,6 +57,12 @@ const Sidebar = ({ setIsAuthenticated }) => {
           <button onClick={handleSettings}>
             <FaCog size={20} />
             {!isMinimized && 'Settings'}
+          </button>
+        </li>
+        <li>
+          <button onClick={() => navigate('/bids')}>
+            <FaGavel size={20} />
+            {!isMinimized && 'Bids'}
           </button>
         </li>
         <li>

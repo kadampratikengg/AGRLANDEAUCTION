@@ -284,6 +284,28 @@ router.put('/events/:id', authenticateToken, upload.none(), async (req, res) => 
       return res.status(404).json({ message: 'Event not found or unauthorized' });
     }
 
+    // Identify images to delete
+    const existingImageUuids = new Set(existingEvent.candidateImages.map(img => img.uuid).filter(Boolean));
+    const newImageUuids = new Set(parsedCandidateImages.map(img => img.uuid).filter(Boolean));
+    const imagesToDelete = [...existingImageUuids].filter(uuid => !newImageUuids.has(uuid));
+
+    // Delete images from Uploadcare
+    if (imagesToDelete.length > 0) {
+      try {
+        await Promise.all(imagesToDelete.map(async (uuid) => {
+          await axios.delete(`https://api.uploadcare.com/files/${uuid}/`, {
+            headers: {
+              Authorization: `Uploadcare.Simple ${process.env.UPLOADCARE_PUBLIC_KEY}:${process.env.UPLOADCARE_SECRET_KEY}`,
+              Accept: 'application/vnd.uploadcare-v0.7+json',
+            },
+          });
+          console.log(`🗑️ Deleted image from Uploadcare: ${uuid}`);
+        }));
+      } catch (err) {
+        console.error('❌ Error deleting images from Uploadcare:', err.response?.data || err.message);
+      }
+    }
+
     const event = await Event.findOneAndUpdate(
       { id: req.params.id, userId: req.user.userId },
       {
@@ -324,18 +346,20 @@ router.delete('/events/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Event not found or unauthorized' });
     }
 
+    // Delete images from Uploadcare
     if (event.candidateImages && event.candidateImages.length > 0) {
       const uuids = event.candidateImages.map((img) => img.uuid).filter(Boolean);
       if (uuids.length > 0) {
         try {
-          await axios.delete('https://api.uploadcare.com/files/', {
-            headers: {
-              'Authorization': `Uploadcare.Simple ${process.env.UPLOADCARE_PUBLIC_KEY}:${process.env.UPLOADCARE_SECRET_KEY}`,
-              'Accept': 'application/vnd.uploadcare-v0.7+json',
-            },
-            data: { uuids },
-          });
-          console.log(`🗑️ Deleted ${uuids.length} images from Uploadcare`);
+          await Promise.all(uuids.map(async (uuid) => {
+            await axios.delete(`https://api.uploadcare.com/files/${uuid}/`, {
+              headers: {
+                Authorization: `Uploadcare.Simple ${process.env.UPLOADCARE_PUBLIC_KEY}:${process.env.UPLOADCARE_SECRET_KEY}`,
+                Accept: 'application/vnd.uploadcare-v0.7+json',
+              },
+            });
+            console.log(`🗑️ Deleted image from Uploadcare: ${uuid}`);
+          }));
         } catch (err) {
           console.error('❌ Error deleting images from Uploadcare:', err.response?.data || err.message);
         }

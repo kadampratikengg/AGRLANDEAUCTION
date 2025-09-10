@@ -162,7 +162,7 @@ const CreateAccountPage = () => {
         </div>
 
         <h3>Profile Details</h3>
-        <div className="form-container">
+        
           <div className="form-left">
             <div className="input-field">
               <label>Full Name:</label>
@@ -200,10 +200,8 @@ const CreateAccountPage = () => {
               <label>GST Number:</label>
               <input type="text" name="gstNumber" value={userData.gstNumber} onChange={handleInputChange} />
             </div>
-          </div>
-          <div className="form-right">
             <div className="input-field">
-              <label>Organization Logo:</label>
+            <label>Organization Logo:</label>
               {uploadcarePublicKey ? (
                 <Widget
                   publicKey={uploadcarePublicKey}
@@ -226,7 +224,9 @@ const CreateAccountPage = () => {
               )}
             </div>
           </div>
-        </div>
+
+        
+     
 
         <button type="submit" disabled={loading}>
           {loading ? 'Processing...' : 'Create Account'}

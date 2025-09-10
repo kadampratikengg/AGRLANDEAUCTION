@@ -5,7 +5,6 @@ import * as XLSX from 'xlsx';
 import { v4 as uuidv4 } from 'uuid';
 import { Widget } from '@uploadcare/react-widget';
 import Sidebar from './Sidebar';
-// import Navbar from './Navbar';
 
 const Dashboard = ({ setIsAuthenticated, name }) => {
   const [fileData, setFileData] = useState([]);
@@ -59,12 +58,40 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     }
   };
 
-  const handleClearImage = (index) => {
-    setCandidateImages((prevImages) => {
-      const newImages = { ...prevImages };
-      delete newImages[index];
-      return newImages;
-    });
+  const handleClearImage = async (index) => {
+    const image = candidateImages[index];
+    if (image && image.uuid) {
+      try {
+        const apiUrl = process.env.REACT_APP_API_URL;
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${apiUrl}/api/uploadcare/delete/${image.uuid}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to delete image from Uploadcare (Status: ${response.status})`);
+        }
+        setCandidateImages((prevImages) => {
+          const newImages = { ...prevImages };
+          delete newImages[index];
+          return newImages;
+        });
+      } catch (error) {
+        console.error('Error deleting image from Uploadcare:', error.message);
+        alert(error.message || 'Failed to delete image from Uploadcare. Please try again.');
+      }
+    } else {
+      // If no image exists, just remove it from state
+      setCandidateImages((prevImages) => {
+        const newImages = { ...prevImages };
+        delete newImages[index];
+        return newImages;
+      });
+    }
   };
 
   useEffect(() => {
@@ -85,7 +112,12 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
           throw new Error('Failed to fetch events');
         }
         const events = await response.json();
-        setActiveEvents(events);
+        const sortedEvents = events.sort((a, b) => {
+          const dateA = new Date(`${a.date}T${a.startTime}`);
+          const dateB = new Date(`${b.date}T${b.startTime}`);
+          return dateB - dateA;
+        });
+        setActiveEvents(sortedEvents);
       } catch (err) {
         setError('Failed to load events. Please try again later.');
         console.error('Error fetching events:', err);
@@ -242,19 +274,24 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       return;
     }
 
+  const start = new Date(`${eventDate}T${startTime}`);
+  const stop = new Date(`${eventDate}T${stopTime}`);
+
+  if (stop <= start) {
+    alert("Stop time must be greater than Start time.");
+    return;
+  }
     const expiryTime = new Date(`${eventDate}T${stopTime}`).getTime();
     const currentEventId = editingEventId || eventId;
 
     const serializedCandidateImages = checkedRows.map((rowIndex) => {
       const image = candidateImages[rowIndex];
       return {
-        candidateIndex: checkedRows.indexOf(rowIndex),
+        candidateIndex: rowIndex,
         uuid: image ? image.uuid : null,
         cdnUrl: image ? image.cdnUrl : null,
       };
     }).filter(img => img.uuid && img.cdnUrl);
-
-    console.log('Serialized Candidate Images:', serializedCandidateImages);
 
     const formData = new FormData();
     formData.append('id', currentEventId);
@@ -308,10 +345,17 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       };
 
       setActiveEvents((prev) => {
+        let updatedEvents;
         if (isEditing) {
-          return prev.map((event) => (event.id === currentEventId ? eventDetails : event));
+          updatedEvents = prev.map((event) => (event.id === currentEventId ? eventDetails : event));
+        } else {
+          updatedEvents = [...prev, eventDetails];
         }
-        return [...prev, eventDetails];
+        return updatedEvents.sort((a, b) => {
+          const dateA = new Date(`${a.date}T${a.startTime}`);
+          const dateB = new Date(`${b.date}T${b.startTime}`);
+          return dateB - dateA;
+        });
       });
       
       setGeneratedLink(result.link || eventDetails.link);
@@ -325,9 +369,8 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
   return (
     <div className="app-container">
-      {/* <Navbar setIsAuthenticated={setIsAuthenticated} /> */}
       <div className="main-content">
-      <Sidebar setIsAuthenticated={setIsAuthenticated} />
+        <Sidebar setIsAuthenticated={setIsAuthenticated} />
         <div className="content">
           <h2>Voting</h2>
           <div className="sections-container">
@@ -336,44 +379,44 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
               {loading ? (
                 <p>Loading...</p>
               ) : error ? (
-                  <p>{error}</p>
-                ) : activeEvents.length === 0 ? (
-                  <p>No events.</p>
-                ) : (
-                  activeEvents.map((event) => (
-                    <div key={event.id} className="event">
-                      <h4>{event.name}</h4>
-                      <p>{event.description}</p>
-                      <p>Date: {event.date}</p>
-                      <p>Start: {event.startTime} - Stop: {event.stopTime}</p>
-                      <a href={event.link} target="_blank" rel="noopener noreferrer">{event.link}</a>
-                      <div className="event-actions" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                        <button
-                          className="btn-primary"
-                          style={{ background: '#ff4d4d', color: 'white', padding: '5px 10px', border: 'none', borderRadius: '5px' }}
-                          onClick={() => handleDeleteEvent(event.id)}
-                          title="Delete Event"
-                        >
-                          Delete
-                        </button>
-                        <button
-                          className="btn-primary"
-                          style={{ background: '#4CAF50', color: 'white', padding: '5px 10px', border: 'none', borderRadius: '5px' }}
-                          onClick={() => handleEditEvent(event.id, event)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="btn-primary"
-                          style={{ background: '#2196F3', color: 'white', padding: '5px 10px', border: 'none', borderRadius: '5px' }}
-                          onClick={() => handleViewResults(event.id)}
-                        >
-                          Results
-                        </button>
-                      </div>
+                <p>{error}</p>
+              ) : activeEvents.length === 0 ? (
+                <p>No events.</p>
+              ) : (
+                activeEvents.map((event) => (
+                  <div key={event.id} className="event">
+                    <h4>{event.name}</h4>
+                    <p>{event.description}</p>
+                    <p>Date: {event.date}</p>
+                    <p>Start: {event.startTime} - Stop: {event.stopTime}</p>
+                    <a href={event.link} target="_blank" rel="noopener noreferrer">{event.link}</a>
+                    <div className="event-actions" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                      <button
+                        className="btn-primary"
+                        style={{ background: '#ff4d4d', color: 'white', padding: '5px 10px', border: 'none', borderRadius: '5px' }}
+                        onClick={() => handleDeleteEvent(event.id)}
+                        title="Delete Event"
+                      >
+                        Delete
+                      </button>
+                      <button
+                        className="btn-primary"
+                        style={{ background: '#4CAF50', color: 'white', padding: '5px 10px', border: 'none', borderRadius: '5px' }}
+                        onClick={() => handleEditEvent(event.id, event)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="btn-primary"
+                        style={{ background: '#2196F3', color: 'white', padding: '5px 10px', border: 'none', borderRadius: '5px' }}
+                        onClick={() => handleViewResults(event.id)}
+                      >
+                        Results
+                      </button>
                     </div>
-                  ))
-                )}
+                  </div>
+                ))
+              )}
             </div>
 
             <div className="create-section">
@@ -447,7 +490,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                         onChange={handleFileUpload}
                       />
                       <p>File Uploaded: {fileName || 'AllDetailsFile.xlsx'}</p>
-                      <a href="https://ucarecdn.com/fc73b582-f0fa-4069-aec3-d262bcae3236" target="_blank" rel="noopener noreferrer">
+                      <a href="https://ucarecdn.com/fc73b582-f0fa-4069-aec3-d262bcae3236/" target="_blank" rel="noopener noreferrer" download="AllDetailsFile.xlsm">
                         Download Sample File
                       </a>
                     </div>
@@ -455,7 +498,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                     {fileData.length > 0 && (
                       <div>
                         <h4>Selected Candidates:</h4>
-                        <table>
+                        <table className="sub-users-table">
                           <thead>
                             <tr>
                               {Object.keys(fileData[0]).map((key) => (
@@ -473,34 +516,35 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                                 ))}
                                 <td>
                                   {uploadcarePublicKey ? (
-                                    <Widget
-                                      publicKey={uploadcarePublicKey}
-                                      onChange={(fileInfo) => handleImageUpload(index, fileInfo)}
-                                      clearable
-                                      imagesOnly
-                                      crop="1:1"
-                                      maxFileSize={2000000}
-                                    />
+                                    <>
+                                      <Widget
+                                        publicKey={uploadcarePublicKey}
+                                        onChange={(fileInfo) => handleImageUpload(index, fileInfo)}
+                                        clearable
+                                        imagesOnly
+                                        crop="1:1"
+                                        maxFileSize={2000000}
+                                      />
+                                      {candidateImages[index] && (
+                                        <div>
+                                          <img
+                                            src={candidateImages[index].cdnUrl}
+                                            alt={`Candidate ${index}`}
+                                            style={{ maxWidth: '80px', margin: '5px 0' }}
+                                          />
+                                          <button
+                                            className="btn-primary btn-small"
+                                            onClick={() => handleClearImage(index)}
+                                          >
+                                            Clear Image
+                                          </button>
+                                        </div>
+                                      )}
+                                    </>
                                   ) : (
-                                    <p style={{ color: 'red' }}>
+                                    <p className="error-message">
                                       Image upload disabled: Uploadcare public key missing. Check .env configuration.
                                     </p>
-                                  )}
-                                  {candidateImages[index] && (
-                                    <div>
-                                      <img
-                                        src={candidateImages[index].cdnUrl}
-                                        alt={`Candidate ${index}`}
-                                        style={{ maxWidth: '100px', margin: '5px 0' }}
-                                      />
-                                      <button
-                                        className="btn-primary"
-                                        style={{ background: '#ff4d4d', color: 'white', padding: '5px 10px', border: 'none', borderRadius: '5px' }}
-                                        onClick={() => handleClearImage(index)}
-                                      >
-                                        Clear Image
-                                      </button>
-                                    </div>
                                   )}
                                 </td>
                                 <td>
@@ -521,7 +565,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                   </form>
 
                   {eventCreated && (
-                    <div className="event-success">
+                    <div className="event-success-message">
                       <h4>Voting {editingEventId ? 'Updated' : 'Created'} Successfully</h4>
                       <p>
                         Your Voting link:{' '}
