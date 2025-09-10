@@ -137,11 +137,11 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
           <h2>Welcome to the Dashboard</h2>
           <div className="sections-container">
             <div className="current-section">
-              <h3>Today Events</h3>
+              <h3>Today Voting</h3>
               {renderEvents(todayEvents, 'events today')}
             </div>
             <div className="current-section">
-              <h3>All Events</h3>
+              <h3>All Voting</h3>
               {renderEvents(activeEvents, 'events')}
             </div>
           </div>

@@ -329,10 +329,10 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       <div className="main-content">
       <Sidebar setIsAuthenticated={setIsAuthenticated} />
         <div className="content">
-          <h2>Events</h2>
+          <h2>Voting</h2>
           <div className="sections-container">
             <div className="current-section">
-              <h3>Events</h3>
+              <h3>Voting</h3>
               {loading ? (
                 <p>Loading...</p>
               ) : error ? (
@@ -378,14 +378,14 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
             <div className="create-section">
               <h3>Create</h3>
-              <button className="create-event-btn" onClick={handleCreateEvent}>Create Event</button>
+              <button className="create-event-btn" onClick={handleCreateEvent}>Create Voting</button>
 
               {showEventForm && (
                 <div className="form-wrapper">
                   <form onSubmit={handleEventFormSubmit} className="event-form-container">
                     <h3>{editingEventId ? 'Edit Event' : 'Create Event'}</h3>
                     <div className="form-group">
-                      <label htmlFor="eventDate">Event Date:</label>
+                      <label htmlFor="eventDate">Voting Date:</label>
                       <input
                         type="date"
                         id="eventDate"
@@ -418,7 +418,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                     </div>
 
                     <div className="form-group">
-                      <label htmlFor="eventName">Event Name:</label>
+                      <label htmlFor="eventName">Voting Name:</label>
                       <input
                         type="text"
                         id="eventName"
@@ -439,7 +439,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                     </div>
 
                     <div className="form-group">
-                      <label htmlFor="fileUpload">Upload Excel File:</label>
+                      <label htmlFor="fileUpload">Upload Voters Excel File:</label>
                       <input
                         type="file"
                         id="fileUpload"
@@ -522,9 +522,9 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
                   {eventCreated && (
                     <div className="event-success">
-                      <h4>Event {editingEventId ? 'Updated' : 'Created'} Successfully</h4>
+                      <h4>Voting {editingEventId ? 'Updated' : 'Created'} Successfully</h4>
                       <p>
-                        Your event link:{' '}
+                        Your Voting link:{' '}
                         <a href={generatedLink} target="_blank" rel="noopener noreferrer">
                           {generatedLink}
                         </a>
