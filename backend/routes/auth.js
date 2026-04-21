@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const multer = require('multer');
 const User = require('../models/User');
 const { transporter } = require('../utils/nodemailer');
+const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
 
 // Configure multer for FormData
@@ -97,6 +98,27 @@ router.post('/check-email', express.json(), async (req, res) => {
     res.status(200).json({ exists: !!existingUser });
   } catch (error) {
     res.status(500).json({ message: 'Failed to check email availability' });
+  }
+});
+
+// Change Password
+router.post('/api/change-password', authenticateToken, express.json(), async (req, res) => {
+  const { newPassword } = req.body;
+
+  try {
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
+
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.status(200).json({ message: 'Password changed successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to change password' });
   }
 });
 

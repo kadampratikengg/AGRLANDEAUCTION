@@ -371,6 +371,28 @@ app.post('/reset-password', async (req, res) => {
   }
 });
 
+// Change Password
+app.post('/api/change-password', authenticateToken, async (req, res) => {
+  const { newPassword } = req.body;
+
+  try {
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
+
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.status(200).json({ message: 'Password changed successfully' });
+  } catch (err) {
+    console.error('Error changing password:', err);
+    res.status(500).json({ message: 'Failed to change password' });
+  }
+});
+
 // Submit Contact Form
 app.post('/submit-contact', async (req, res) => {
   console.log('📥 Contact form data:', req.body);
