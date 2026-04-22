@@ -27,7 +27,7 @@
 .profile-page {
   box-sizing: border-box;
   min-height: 100vh;
-  padding: 34px clamp(18px, 3vw, 46px) 46px;
+  padding: 20px;
 }
 
 .profile-page * {

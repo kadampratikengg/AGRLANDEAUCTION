@@ -760,20 +760,17 @@ a:hover {
 
 /* Responsive Adjustments */
 @media (max-width: 768px) {
+  /* On small screens we keep the sidebar visible (icons always shown).
+     Collapsed = icons-only (controlled by .minimized). Expanded = icons + labels. */
   .sidebar {
     width: 250px;
-    transform: translateX(-100%);
     padding: 20px;
   }
 
   .sidebar.minimized {
-    width: 250px;
-    padding: 20px;
-    transform: translateX(-100%);
-  }
-
-  .sidebar.open {
-    transform: translateX(0);
+    /* keep minimized width small so only icons show */
+    width: 50px;
+    padding: 20px 10px;
   }
 
   .sidebar.minimized .minimize-btn {
@@ -796,17 +793,9 @@ a:hover {
     margin-left: 0;
   }
 
-  .sidebar.open ~ .content {
-    margin-left: 250px;
-  }
-
-  .sidebar.open ~ .work-page {
-    margin-left: 250px;
-    width: calc(100% - 250px);
-  }
-
+  /* Remove the extra mobile toggle; we use the single inside `.minimize-btn`. */
   .sidebar-mobile-toggle {
-    display: flex;
+    display: none;
   }
 
   .navbar nav ul {

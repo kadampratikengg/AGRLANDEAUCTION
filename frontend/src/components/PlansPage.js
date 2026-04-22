@@ -96,7 +96,7 @@ const PlansPage = () => {
       setErrorMessage,
       setLoading,
       navigate,
-      () => navigate('/'),
+      () => navigate('/profile'),
       { password, confirmPassword },
     );
   };

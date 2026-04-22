@@ -210,13 +210,11 @@ router.post('/create-account', upload.none(), async (req, res) => {
       expiresIn: '2h',
     });
 
-    res
-      .status(201)
-      .json({
-        message: 'Account created successfully',
-        token,
-        userId: savedUser._id,
-      });
+    res.status(201).json({
+      message: 'Account created successfully',
+      token,
+      userId: savedUser._id,
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error during account creation' });
   }
@@ -233,13 +231,11 @@ router.post('/create-order', express.json(), async (req, res) => {
       payment_capture: 1,
     };
     const order = await razorpay.orders.create(options);
-    res
-      .status(200)
-      .json({
-        order_id: order.id,
-        amount: order.amount,
-        currency: order.currency,
-      });
+    res.status(200).json({
+      order_id: order.id,
+      amount: order.amount,
+      currency: order.currency,
+    });
   } catch (error) {
     res.status(500).json({ message: 'Failed to create order' });
   }
@@ -262,19 +258,40 @@ router.post('/verify-payment', express.json(), async (req, res) => {
   } = req.body;
 
   try {
+    // Ensure numeric parsing of credits/amounts
+    const parsedVotingCredits = Number(votingCredits ?? 0);
+    const parsedAmount = Number(amount ?? 0);
+
+    // Verify signature
     const generatedSignature = crypto
       .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest('hex');
 
     if (generatedSignature !== razorpay_signature) {
+      console.warn('Invalid payment signature', {
+        razorpay_order_id,
+        razorpay_payment_id,
+        generatedSignature,
+        razorpay_signature,
+      });
       return res.status(400).json({ message: 'Invalid payment signature' });
     }
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Move current subscription to history if it exists
+    console.log('🔔 verify-payment called with payload:', {
+      razorpay_payment_id,
+      razorpay_order_id,
+      userId,
+      planDuration,
+      amount,
+      validityDays,
+      votingCredits,
+    });
+
+    // Move current subscription to history if it exists and is valid
     if (user.subscription && user.subscription.isValid) {
       user.subscriptionHistory = user.subscriptionHistory || [];
       user.subscriptionHistory.push({
@@ -296,40 +313,49 @@ router.post('/verify-payment', express.json(), async (req, res) => {
     const today = new Date();
     const startDate = today;
     const subscriptionEndDate = new Date(startDate);
-    subscriptionEndDate.setDate(subscriptionEndDate.getDate() + validityDays);
+    subscriptionEndDate.setDate(
+      subscriptionEndDate.getDate() + Number(validityDays ?? 0),
+    );
 
+    // Update subscription: add purchased credits to existing credits
     user.subscription = {
       planDuration,
       startDate,
       endDate: subscriptionEndDate,
       isValid: true,
       votingCredits:
-        (user.subscription?.votingCredits || 0) + Number(votingCredits || 0),
+        (user.subscription?.votingCredits || 0) + parsedVotingCredits,
       usedVotingCredits: user.subscription?.usedVotingCredits || 0,
       mrp,
       discount,
       gst,
-      amount,
+      amount: parsedAmount,
       paymentId: razorpay_payment_id,
       orderId: razorpay_order_id,
     };
 
+    console.log('ℹ️ New subscription to save:', user.subscription);
     await user.save();
+    console.log('✅ Subscription saved for user:', user._id);
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
       expiresIn: '2h',
     });
 
-    res
-      .status(200)
-      .json({
-        message: 'Payment verified and subscription updated',
-        token,
-        userId: user._id,
-      });
+    // Return updated subscription so client can immediately reflect credits.
+    res.status(200).json({
+      message: 'Payment verified and subscription updated',
+      token,
+      userId: user._id,
+      subscription: user.subscription || {},
+      votingCredits: user.subscription?.votingCredits || 0,
+      usedVotingCredits: user.subscription?.usedVotingCredits || 0,
+    });
   } catch (error) {
-    console.error('❌ Payment verification error:', error.message, error.stack);
-    res.status(500).json({ message: 'Payment verification failed' });
+    console.error('❌ verify-payment error:', error);
+    res
+      .status(500)
+      .json({ message: 'Payment verification failed', error: error.message });
   }
 });
 

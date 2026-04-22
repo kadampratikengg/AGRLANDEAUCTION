@@ -243,7 +243,9 @@ Generated on: ${formatDate(new Date())}
   };
 
   const currentSubscription = userData.subscription || {};
-  const availableCredits = currentSubscription.votingCredits ?? 0;
+  // Support both shapes: `subscription.votingCredits` (primary) or a legacy/top-level `votingCredits`.
+  const availableCredits =
+    currentSubscription?.votingCredits ?? userData?.votingCredits ?? 0;
   const pendingActivationMessage =
     !currentSubscription.isValid && currentSubscription.activationDate
       ? `Free credits will activate on ${formatDate(currentSubscription.activationDate)}`
