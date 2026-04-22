@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import {
+  FiCheckCircle,
+  FiShield,
+  FiStar,
+  FiTrendingDown,
+  FiZap,
+} from 'react-icons/fi';
 import { initiatePayment } from './razorpay';
 import './PlansPage.css';
 
@@ -15,9 +22,37 @@ const PlansPage = () => {
   const confirmPassword = state?.confirmPassword || '';
 
   const plans = [
-    { duration: '1 Month', amount: 1000, validityDays: 30, description: 'Basic plan for short-term usage.' },
-    { duration: '3 Month', amount: 3000, validityDays: 90, description: 'Standard plan with better savings.' },
-    { duration: '6 Month', amount: 6000, validityDays: 180, description: 'Best value for long-term users.' },
+    {
+      id: 'starter-credits',
+      name: 'Starter Voting Credits',
+      credits: 5,
+      mrp: 2500,
+      amount: 1499,
+      description:
+        'Best for small societies, committees, and one-time voting events.',
+      badge: 'Entry Pack',
+    },
+    {
+      id: 'standard-credits',
+      name: 'Standard Voting Credits',
+      credits: 15,
+      mrp: 7500,
+      amount: 3999,
+      description:
+        'Recommended for regular voting activity with stronger per-vote savings.',
+      badge: 'Best Price',
+      featured: true,
+    },
+    {
+      id: 'governance-credits',
+      name: 'Governance Voting Credits',
+      credits: 40,
+      mrp: 20000,
+      amount: 9999,
+      description:
+        'Designed for high-volume government-standard voting operations.',
+      badge: 'Maximum Discount',
+    },
   ];
 
   useEffect(() => {
@@ -30,60 +65,132 @@ const PlansPage = () => {
     };
   }, []);
 
-  const handlePlanSelect = (plan) => {
-    const gst = plan.amount * 0.18;
-    const txCharge = plan.amount * 0.02;
-    const total = plan.amount + gst + txCharge;
+  const formatCurrency = (amount) =>
+    `₹${Number(amount).toLocaleString('en-IN')}`;
 
-    const updatedPlan = {
+  const buildPricedPlan = (plan) => {
+    const discount = plan.mrp - plan.amount;
+    const discountPercent = Math.round((discount / plan.mrp) * 100);
+    const gst = plan.amount * 0.18;
+    const total = plan.amount + gst;
+
+    return {
       ...plan,
+      duration: `${plan.credits} Voting Credits`,
+      planDuration: `${plan.credits} Voting Credits`,
+      validityDays: 365,
+      votingCredits: plan.credits,
+      discount,
+      discountPercent,
       gst,
-      txCharge,
+      txCharge: 0,
       total,
     };
+  };
 
+  const handlePlanSelect = (plan) => {
     initiatePayment(
-      updatedPlan,
+      buildPricedPlan(plan),
       email,
       userId,
       setErrorMessage,
       setLoading,
       navigate,
       () => navigate('/'),
-      { password, confirmPassword }
+      { password, confirmPassword },
     );
   };
 
   return (
-    <div className="plans-page">
-      <h2 className="plans-title">Choose Your Subscription Plan</h2>
-      <div className="plans-container">
+    <main className='plans-page'>
+      <section className='plans-hero'>
+        <div>
+          <span className='plans-kicker'>
+            <FiShield /> Voting Credit Plans
+          </span>
+          <h1>Pay per voting event, not per month.</h1>
+          <p>
+            Every new account includes <strong>2 free voting credits</strong>.
+            After that, buy voting credits as needed. One credit creates one
+            voting event with government-standard workflow support.
+          </p>
+        </div>
+        <div className='plans-free-card'>
+          <FiZap />
+          <strong>2 Free Voting Credits</strong>
+          <span>Included for every new user account.</span>
+        </div>
+      </section>
+
+      <section className='plans-container'>
         {plans.map((plan) => {
-          const gst = plan.amount * 0.18;
-          const txCharge = plan.amount * 0.02;
-          const total = plan.amount + gst + txCharge;
+          const pricedPlan = buildPricedPlan(plan);
+          const pricePerVoting = pricedPlan.amount / pricedPlan.credits;
 
           return (
-            <div key={plan.duration} className="plan-card">
-              <h3>{plan.duration.charAt(0).toUpperCase() + plan.duration.slice(1)}</h3>
-              <p className="plan-price">₹{total.toFixed(2)}</p>
-              <p className="plan-subtext">Base Price: ₹{plan.amount}</p>
-              <p className="plan-subtext">+ 18% GST: ₹{gst.toFixed(2)}</p>
-              <p className="plan-subtext">+ 2% Transaction Charge: ₹{txCharge.toFixed(2)}</p>
-              <p className="plan-validity">Validity: {plan.validityDays} days</p>
-              <p className="plan-description">{plan.description}</p>
-              <button 
-                onClick={() => handlePlanSelect(plan)} 
-                disabled={loading}
-              >
-                {loading ? "Processing..." : "Choose Plan"}
+            <article
+              key={plan.id}
+              className={`plan-card ${plan.featured ? 'plan-card--featured' : ''}`}
+            >
+              <div className='plan-card__badge'>
+                {plan.featured ? <FiStar /> : <FiTrendingDown />}
+                {plan.badge}
+              </div>
+
+              <h2>{plan.name}</h2>
+              <p className='plan-credits'>{plan.credits} Voting Credits</p>
+              <p className='plan-description'>{plan.description}</p>
+
+              <div className='plan-price-box'>
+                <span className='plan-mrp'>MRP {formatCurrency(plan.mrp)}</span>
+                <strong>{formatCurrency(pricedPlan.amount)}</strong>
+                <span className='plan-discount'>
+                  Save {formatCurrency(pricedPlan.discount)} (
+                  {pricedPlan.discountPercent}% OFF)
+                </span>
+              </div>
+
+              <div className='plan-breakdown'>
+                <div>
+                  <span>Best price after discount</span>
+                  <strong>{formatCurrency(pricedPlan.amount)}</strong>
+                </div>
+                <div>
+                  <span>GST 18%</span>
+                  <strong>{formatCurrency(pricedPlan.gst)}</strong>
+                </div>
+                <div className='plan-breakdown__total'>
+                  <span>Total payable</span>
+                  <strong>{formatCurrency(pricedPlan.total)}</strong>
+                </div>
+                <div>
+                  <span>Effective per voting</span>
+                  <strong>{formatCurrency(pricePerVoting)}</strong>
+                </div>
+              </div>
+
+              <ul className='plan-features'>
+                <li>
+                  <FiCheckCircle /> 1 credit = 1 voting event
+                </li>
+                <li>
+                  <FiCheckCircle /> Credits valid for 365 days
+                </li>
+                <li>
+                  <FiCheckCircle /> Suitable for compliant voting workflows
+                </li>
+              </ul>
+
+              <button onClick={() => handlePlanSelect(plan)} disabled={loading}>
+                {loading ? 'Processing...' : 'Buy Voting Credits'}
               </button>
-            </div>
+            </article>
           );
         })}
-      </div>
-      {errorMessage && <p className="error">{errorMessage}</p>}
-    </div>
+      </section>
+
+      {errorMessage && <p className='plans-error'>{errorMessage}</p>}
+    </main>
   );
 };
 

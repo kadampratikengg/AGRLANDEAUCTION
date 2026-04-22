@@ -1,6 +1,7 @@
 const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
 const User = require('../models/User');
+const { activatePendingFreeCredits } = require('../utils/subscription');
 const router = express.Router();
 
 // Helper function to generate a unique username
@@ -19,7 +20,9 @@ router.get('/api/users', authenticateToken, async (req, res) => {
   try {
     if (!process.env.JWT_SECRET) {
       console.error('❌ JWT_SECRET is not defined in environment variables');
-      return res.status(500).json({ message: 'Server configuration error: JWT_SECRET is not set' });
+      return res
+        .status(500)
+        .json({ message: 'Server configuration error: JWT_SECRET is not set' });
     }
 
     const userId = req.user.userId;
@@ -28,14 +31,19 @@ router.get('/api/users', authenticateToken, async (req, res) => {
       return res.status(401).json({ message: 'Invalid authentication token' });
     }
 
-    const user = await User.findById(userId).lean();
+    const user = await User.findById(userId);
     if (!user) {
       console.error('❌ User not found for ID:', userId);
       return res.status(404).json({ message: 'User not found' });
     }
 
+    await activatePendingFreeCredits(user);
+
     if (!user.username) {
-      console.log('ℹ️ No username found for user, creating default username:', userId);
+      console.log(
+        'ℹ️ No username found for user, creating default username:',
+        userId,
+      );
       const baseUsername = user.email?.split('@')[0] || `user_${userId}`;
       const username = await generateUniqueUsername(baseUsername);
       await User.findByIdAndUpdate(userId, { username }, { new: true });
@@ -56,11 +64,13 @@ router.get('/api/users', authenticateToken, async (req, res) => {
       pincode: user.pincode || '',
       gstNumber: user.gstNumber || '',
       subscription: user.subscription || {},
-      subscriptionHistory: user.subscriptionHistory || []
+      subscriptionHistory: user.subscriptionHistory || [],
     });
   } catch (error) {
     console.error('❌ Error fetching profile:', error.message, error.stack);
-    res.status(500).json({ message: 'Error fetching user profile', error: error.message });
+    res
+      .status(500)
+      .json({ message: 'Error fetching user profile', error: error.message });
   }
 });
 
@@ -69,7 +79,9 @@ router.put('/api/users', authenticateToken, async (req, res) => {
   try {
     if (!process.env.JWT_SECRET) {
       console.error('❌ JWT_SECRET is not defined in environment variables');
-      return res.status(500).json({ message: 'Server configuration error: JWT_SECRET is not set' });
+      return res
+        .status(500)
+        .json({ message: 'Server configuration error: JWT_SECRET is not set' });
     }
 
     const userId = req.user.userId;
@@ -108,7 +120,8 @@ router.put('/api/users', authenticateToken, async (req, res) => {
 
     // Update only provided fields
     user.name = name !== undefined ? name : user.name;
-    user.organization = organization !== undefined ? organization : user.organization;
+    user.organization =
+      organization !== undefined ? organization : user.organization;
     user.logo = logo !== undefined ? logo : user.logo;
     user.contact = contact !== undefined ? contact : user.contact;
     user.email = email !== undefined ? email : user.email;
@@ -135,11 +148,13 @@ router.put('/api/users', authenticateToken, async (req, res) => {
       pincode: user.pincode || '',
       gstNumber: user.gstNumber || '',
       subscription: user.subscription || {},
-      subscriptionHistory: user.subscriptionHistory || []
+      subscriptionHistory: user.subscriptionHistory || [],
     });
   } catch (error) {
     console.error('❌ Error updating profile:', error.message, error.stack);
-    res.status(500).json({ message: 'Error updating profile', error: error.message });
+    res
+      .status(500)
+      .json({ message: 'Error updating profile', error: error.message });
   }
 });
 

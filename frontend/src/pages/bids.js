@@ -17,7 +17,7 @@ const Bids = ({ setIsAuthenticated }) => {
   const [addressline1, setAddressLine1] = useState('');
   const [pincode, setPincode] = useState('');
   const [orderItems, setOrderItems] = useState([]);
-  
+
   const locationData = {
     Maharashtra: {
       Pune: {
@@ -66,24 +66,27 @@ const Bids = ({ setIsAuthenticated }) => {
       state: selectedState,
       district: selectedDistrict,
       taluka: selectedTaluka,
-      pincode
+      pincode,
     };
-  
+
     try {
       const apiBaseUrl = process.env.REACT_APP_API_URL;
-      console.log('Submitting contact form to:', `${apiBaseUrl}/api/contact/submit`);
+      console.log(
+        'Submitting contact form to:',
+        `${apiBaseUrl}/api/contact/submit`,
+      );
       const res = await fetch(`${apiBaseUrl}/api/contact/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
       });
-  
+
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
       }
-  
+
       const result = await res.json();
       alert(result.message);
       resetContactForm();
@@ -107,9 +110,9 @@ const Bids = ({ setIsAuthenticated }) => {
       district: selectedDistrict,
       taluka: selectedTaluka,
       pincode,
-      items: orderItems
+      items: orderItems,
     };
-  
+
     try {
       const apiBaseUrl = process.env.REACT_APP_API_URL;
       console.log('Submitting order form to:', `${apiBaseUrl}/submit`);
@@ -118,13 +121,13 @@ const Bids = ({ setIsAuthenticated }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
       });
-  
+
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
       }
-  
+
       const result = await res.json();
       alert(result.message);
       resetOrderForm();
@@ -162,122 +165,205 @@ const Bids = ({ setIsAuthenticated }) => {
   };
 
   return (
-    <div className="app-container">
-      {/* <Navbar setIsAuthenticated={setIsAuthenticated} /> */}
-      <div className="main-content">
-      <Sidebar setIsAuthenticated={setIsAuthenticated} />
-        <div className="content">
+    <div className='app-container'>
+      <div className='work-shell'>
+        <Sidebar setIsAuthenticated={setIsAuthenticated} />
+        <main className='work-page'>
           <h2>Bids</h2>
-          <div className="sections-container">
-            <div className="current-section">
+          <div className='sections-container'>
+            <div className='current-section'>
               <h3>Contact Form</h3>
               <button
-                className="create-event-btn"
+                className='create-event-btn'
                 onClick={() => setShowContactForm(!showContactForm)}
               >
                 {showContactForm ? 'Hide Contact Form' : 'Show Contact Form'}
               </button>
               {showContactForm && (
-                <div className="form-wrapper">
-                  <form onSubmit={handleContactFormSubmit} className="contact-form-container">
+                <div className='form-wrapper'>
+                  <form
+                    onSubmit={handleContactFormSubmit}
+                    className='contact-form-container'
+                  >
                     <h3>Contact Form</h3>
-                    <div className="form-group">
+                    <div className='form-group'>
                       <label>Business Name</label>
-                      <input type="text" value={businessName} onChange={(e) => setBusinessName(e.target.value)} required />
+                      <input
+                        type='text'
+                        value={businessName}
+                        onChange={(e) => setBusinessName(e.target.value)}
+                        required
+                      />
                     </div>
-                    <div className="form-group">
+                    <div className='form-group'>
                       <label>Owner Name</label>
-                      <input type="text" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} required />
+                      <input
+                        type='text'
+                        value={ownerName}
+                        onChange={(e) => setOwnerName(e.target.value)}
+                        required
+                      />
                     </div>
-                    <div className="form-group">
+                    <div className='form-group'>
                       <label>Contact Number</label>
-                      <input type="tel" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} required />
+                      <input
+                        type='tel'
+                        value={contactNumber}
+                        onChange={(e) => setContactNumber(e.target.value)}
+                        required
+                      />
                     </div>
-                    <div className="form-group">
+                    <div className='form-group'>
                       <label>Email ID</label>
-                      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                      <input
+                        type='email'
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                      />
                     </div>
-                    <div className="form-group">
+                    <div className='form-group'>
                       <label>Business Category</label>
-                      <select value={businessCategory} onChange={(e) => setBusinessCategory(e.target.value)} required>
-                        <option value="">Select Category</option>
-                        <option value="Electronics">Electronics</option>
-                        <option value="Clothing">Clothing</option>
-                        <option value="Food & Beverage">Food & Beverage</option>
-                        <option value="Other">Other</option>
+                      <select
+                        value={businessCategory}
+                        onChange={(e) => setBusinessCategory(e.target.value)}
+                        required
+                      >
+                        <option value=''>Select Category</option>
+                        <option value='Electronics'>Electronics</option>
+                        <option value='Clothing'>Clothing</option>
+                        <option value='Food & Beverage'>Food & Beverage</option>
+                        <option value='Other'>Other</option>
                       </select>
                     </div>
-                    <div className="form-group">
+                    <div className='form-group'>
                       <label>Address</label>
-                      <input type="text" value={addressline1} onChange={(e) => setAddressLine1(e.target.value)} required />
+                      <input
+                        type='text'
+                        value={addressline1}
+                        onChange={(e) => setAddressLine1(e.target.value)}
+                        required
+                      />
                     </div>
-                    <div className="form-group">
+                    <div className='form-group'>
                       <label>State</label>
-                      <select value={selectedState} onChange={handleStateChange} required>
-                        <option value="">Select State</option>
+                      <select
+                        value={selectedState}
+                        onChange={handleStateChange}
+                        required
+                      >
+                        <option value=''>Select State</option>
                         {Object.keys(locationData).map((state) => (
-                          <option key={state} value={state}>{state}</option>
+                          <option key={state} value={state}>
+                            {state}
+                          </option>
                         ))}
                       </select>
                     </div>
-                    <div className="form-group">
+                    <div className='form-group'>
                       <label>District</label>
-                      <select value={selectedDistrict} onChange={handleDistrictChange} disabled={!selectedState} required>
-                        <option value="">Select District</option>
+                      <select
+                        value={selectedDistrict}
+                        onChange={handleDistrictChange}
+                        disabled={!selectedState}
+                        required
+                      >
+                        <option value=''>Select District</option>
                         {selectedState &&
-                          Object.keys(locationData[selectedState]).map((district) => (
-                            <option key={district} value={district}>{district}</option>
-                          ))}
+                          Object.keys(locationData[selectedState]).map(
+                            (district) => (
+                              <option key={district} value={district}>
+                                {district}
+                              </option>
+                            ),
+                          )}
                       </select>
                     </div>
-                    <div className="form-group">
+                    <div className='form-group'>
                       <label>Taluka</label>
-                      <select value={selectedTaluka} onChange={handleTalukaChange} disabled={!selectedDistrict} required>
-                        <option value="">Select Taluka</option>
+                      <select
+                        value={selectedTaluka}
+                        onChange={handleTalukaChange}
+                        disabled={!selectedDistrict}
+                        required
+                      >
+                        <option value=''>Select Taluka</option>
                         {selectedDistrict &&
-                          Object.keys(locationData[selectedState][selectedDistrict]).map((taluka) => (
-                            <option key={taluka} value={taluka}>{taluka}</option>
+                          Object.keys(
+                            locationData[selectedState][selectedDistrict],
+                          ).map((taluka) => (
+                            <option key={taluka} value={taluka}>
+                              {taluka}
+                            </option>
                           ))}
                       </select>
                     </div>
-                    <div className="form-group">
+                    <div className='form-group'>
                       <label>Pincode</label>
-                      <input type="text" value={pincode} onChange={(e) => setPincode(e.target.value)} required />
+                      <input
+                        type='text'
+                        value={pincode}
+                        onChange={(e) => setPincode(e.target.value)}
+                        required
+                      />
                     </div>
-                    <button type="submit" className="btn-primary">Submit</button>
+                    <button type='submit' className='btn-primary'>
+                      Submit
+                    </button>
                   </form>
                 </div>
               )}
             </div>
-            <div className="create-section">
+            <div className='create-section'>
               <h3>Order Form</h3>
               <button
-                className="create-event-btn"
+                className='create-event-btn'
                 onClick={() => setShowOrderForm(!showOrderForm)}
               >
                 {showOrderForm ? 'Hide Order Form' : 'Show Order Form'}
               </button>
               {showOrderForm && (
-                <div className="form-wrapper">
-                  <form onSubmit={handleOrderFormSubmit} className="order-form-container">
+                <div className='form-wrapper'>
+                  <form
+                    onSubmit={handleOrderFormSubmit}
+                    className='order-form-container'
+                  >
                     <h3>Order Form</h3>
-                    <div className="form-group">
+                    <div className='form-group'>
                       <label>Business Name</label>
-                      <input type="text" value={businessName} onChange={(e) => setBusinessName(e.target.value)} required />
+                      <input
+                        type='text'
+                        value={businessName}
+                        onChange={(e) => setBusinessName(e.target.value)}
+                        required
+                      />
                     </div>
-                    <div className="form-group">
+                    <div className='form-group'>
                       <label>Owner Name</label>
-                      <input type="text" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} required />
+                      <input
+                        type='text'
+                        value={ownerName}
+                        onChange={(e) => setOwnerName(e.target.value)}
+                        required
+                      />
                     </div>
-                    <div className="form-group">
+                    <div className='form-group'>
                       <label>Contact Number</label>
-                      <input type="tel" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} required />
+                      <input
+                        type='tel'
+                        value={contactNumber}
+                        onChange={(e) => setContactNumber(e.target.value)}
+                        required
+                      />
                     </div>
-                    <div className="form-group">
+                    <div className='form-group'>
                       <label>Email ID</label>
-                      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                      <input
+                        type='email'
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                      />
                     </div>
-                    <div className="form-group">
+                    <div className='form-group'>
                       <label>Quantity</label>
                       <table>
                         <thead>
@@ -288,34 +374,53 @@ const Bids = ({ setIsAuthenticated }) => {
                         </thead>
                         <tbody>
                           {[
-                            "100g",
-                            "200g",
-                            "250g",
-                            "500g",
-                            "1kg",
-                            "5kg",
-                            "10kg"
+                            '100g',
+                            '200g',
+                            '250g',
+                            '500g',
+                            '1kg',
+                            '5kg',
+                            '10kg',
                           ].map((weightOption) => (
                             <tr key={weightOption}>
                               <td>{weightOption}</td>
                               <td>
                                 <input
-                                  type="number"
-                                  min="0"
-                                  value={orderItems.find(item => item.weight === weightOption)?.quantity || 0}
+                                  type='number'
+                                  min='0'
+                                  value={
+                                    orderItems.find(
+                                      (item) => item.weight === weightOption,
+                                    )?.quantity || 0
+                                  }
                                   onChange={(e) => {
-                                    const quantity = parseInt(e.target.value, 10);
+                                    const quantity = parseInt(
+                                      e.target.value,
+                                      10,
+                                    );
                                     if (!isNaN(quantity)) {
                                       const updatedItems = [...orderItems];
-                                      const existingItemIndex = updatedItems.findIndex(item => item.weight === weightOption);
+                                      const existingItemIndex =
+                                        updatedItems.findIndex(
+                                          (item) =>
+                                            item.weight === weightOption,
+                                        );
                                       if (existingItemIndex >= 0) {
                                         if (quantity === 0) {
-                                          updatedItems.splice(existingItemIndex, 1);
+                                          updatedItems.splice(
+                                            existingItemIndex,
+                                            1,
+                                          );
                                         } else {
-                                          updatedItems[existingItemIndex].quantity = quantity;
+                                          updatedItems[
+                                            existingItemIndex
+                                          ].quantity = quantity;
                                         }
                                       } else if (quantity > 0) {
-                                        updatedItems.push({ weight: weightOption, quantity });
+                                        updatedItems.push({
+                                          weight: weightOption,
+                                          quantity,
+                                        });
                                       }
                                       setOrderItems(updatedItems);
                                     }
@@ -328,7 +433,10 @@ const Bids = ({ setIsAuthenticated }) => {
                       </table>
                     </div>
                     {orderItems.length > 0 && (
-                      <div className="order-summary" style={{ marginTop: '20px' }}>
+                      <div
+                        className='order-summary'
+                        style={{ marginTop: '20px' }}
+                      >
                         <h4>Selected Items</h4>
                         <ul>
                           {orderItems.map((item, index) => (
@@ -339,50 +447,86 @@ const Bids = ({ setIsAuthenticated }) => {
                         </ul>
                       </div>
                     )}
-                    <div className="form-group">
+                    <div className='form-group'>
                       <label>Address</label>
-                      <input type="text" value={addressline1} onChange={(e) => setAddressLine1(e.target.value)} required />
+                      <input
+                        type='text'
+                        value={addressline1}
+                        onChange={(e) => setAddressLine1(e.target.value)}
+                        required
+                      />
                     </div>
-                    <div className="form-group">
+                    <div className='form-group'>
                       <label>State</label>
-                      <select value={selectedState} onChange={handleStateChange} required>
-                        <option value="">Select State</option>
+                      <select
+                        value={selectedState}
+                        onChange={handleStateChange}
+                        required
+                      >
+                        <option value=''>Select State</option>
                         {Object.keys(locationData).map((state) => (
-                          <option key={state} value={state}>{state}</option>
+                          <option key={state} value={state}>
+                            {state}
+                          </option>
                         ))}
                       </select>
                     </div>
-                    <div className="form-group">
+                    <div className='form-group'>
                       <label>District</label>
-                      <select value={selectedDistrict} onChange={handleDistrictChange} disabled={!selectedState} required>
-                        <option value="">Select District</option>
+                      <select
+                        value={selectedDistrict}
+                        onChange={handleDistrictChange}
+                        disabled={!selectedState}
+                        required
+                      >
+                        <option value=''>Select District</option>
                         {selectedState &&
-                          Object.keys(locationData[selectedState]).map((district) => (
-                            <option key={district} value={district}>{district}</option>
-                          ))}
+                          Object.keys(locationData[selectedState]).map(
+                            (district) => (
+                              <option key={district} value={district}>
+                                {district}
+                              </option>
+                            ),
+                          )}
                       </select>
                     </div>
-                    <div className="form-group">
+                    <div className='form-group'>
                       <label>Taluka</label>
-                      <select value={selectedTaluka} onChange={handleTalukaChange} disabled={!selectedDistrict} required>
-                        <option value="">Select Taluka</option>
+                      <select
+                        value={selectedTaluka}
+                        onChange={handleTalukaChange}
+                        disabled={!selectedDistrict}
+                        required
+                      >
+                        <option value=''>Select Taluka</option>
                         {selectedDistrict &&
-                          Object.keys(locationData[selectedState][selectedDistrict]).map((taluka) => (
-                            <option key={taluka} value={taluka}>{taluka}</option>
+                          Object.keys(
+                            locationData[selectedState][selectedDistrict],
+                          ).map((taluka) => (
+                            <option key={taluka} value={taluka}>
+                              {taluka}
+                            </option>
                           ))}
                       </select>
                     </div>
-                    <div className="form-group">
+                    <div className='form-group'>
                       <label>Pincode</label>
-                      <input type="text" value={pincode} onChange={(e) => setPincode(e.target.value)} required />
+                      <input
+                        type='text'
+                        value={pincode}
+                        onChange={(e) => setPincode(e.target.value)}
+                        required
+                      />
                     </div>
-                    <button type="submit" className="btn-primary">Submit</button>
+                    <button type='submit' className='btn-primary'>
+                      Submit
+                    </button>
                   </form>
                 </div>
               )}
             </div>
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );

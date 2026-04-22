@@ -39,7 +39,7 @@ const LoginPage = ({ onLogin }) => {
         navigate('/planspage', {
           state: { email, userId: response.data.userId }
         });
-        setErrorMessage('Your subscription has expired. Please select a plan to continue.');
+        setErrorMessage('No voting credits available. Please buy voting credits to continue.');
       }
     } catch (error) {
       setErrorMessage(error.response?.data?.message || 'An error occurred while logging in');

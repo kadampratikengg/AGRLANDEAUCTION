@@ -17,7 +17,7 @@ export const initiatePayment = async (
     return;
   }
 
-  if (!plan.total || !plan.duration || !plan.validityDays) {
+  if (!plan.total || !plan.duration || !plan.validityDays || !plan.votingCredits) {
     console.error('Invalid plan details:', plan);
     setErrorMessage('Invalid plan details');
     setLoading(false);
@@ -57,7 +57,7 @@ export const initiatePayment = async (
       amount,
       currency,
       name: 'A M',
-      description: `Subscription for ${plan.duration}`,
+      description: `Voting credits: ${plan.duration}`,
       order_id,
       handler: async (response) => {
         try {
@@ -70,6 +70,10 @@ export const initiatePayment = async (
             planDuration: plan.duration,
             amount: plan.total * 100, // Send amount in paise
             validityDays: plan.validityDays,
+            votingCredits: plan.votingCredits,
+            mrp: plan.mrp,
+            discount: plan.discount,
+            gst: plan.gst,
             ...additionalData,
           };
           console.log('Verifying payment with payload:', verifyPayload);
@@ -84,7 +88,7 @@ export const initiatePayment = async (
             localStorage.setItem('token', verifyResponse.data.token);
             localStorage.setItem('userId', verifyResponse.data.userId);
             localStorage.setItem('isAuthenticated', 'true');
-            alert('Subscription successful! Payment receipt sent to your email.');
+            alert('Voting credits added successfully! Payment receipt sent to your email.');
             callback();
           }
         } catch (error) {

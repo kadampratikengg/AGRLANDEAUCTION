@@ -19,19 +19,32 @@ const userSchema = new mongoose.Schema({
     startDate: { type: Date },
     endDate: { type: Date },
     isValid: { type: Boolean, default: false },
+    votingCredits: { type: Number, default: 0 },
+    activationDate: { type: Date },
+    usedVotingCredits: { type: Number, default: 0 },
+    mrp: { type: Number },
+    discount: { type: Number },
+    gst: { type: Number },
     amount: { type: Number },
     paymentId: { type: String },
-    orderId: { type: String }
+    orderId: { type: String },
   },
-  subscriptionHistory: [{
-    planDuration: { type: String },
-    startDate: { type: Date },
-    endDate: { type: Date },
-    isValid: { type: Boolean, default: false },
-    amount: { type: Number },
-    paymentId: { type: String },
-    orderId: { type: String }
-  }],
+  subscriptionHistory: [
+    {
+      planDuration: { type: String },
+      startDate: { type: Date },
+      endDate: { type: Date },
+      isValid: { type: Boolean, default: false },
+      votingCredits: { type: Number, default: 0 },
+      usedVotingCredits: { type: Number, default: 0 },
+      mrp: { type: Number },
+      discount: { type: Number },
+      gst: { type: Number },
+      amount: { type: Number },
+      paymentId: { type: String },
+      orderId: { type: String },
+    },
+  ],
   subUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'SubUser' }], // Reference to SubUser model
 });
 

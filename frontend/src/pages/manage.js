@@ -5,8 +5,19 @@ import * as XLSX from 'xlsx';
 import { v4 as uuidv4 } from 'uuid';
 import { Widget } from '@uploadcare/react-widget';
 import Sidebar from './Sidebar';
-import { FiCalendar, FiCheckSquare, FiDownload, FiEdit3, FiExternalLink, FiFileText, FiImage, FiPlus, FiTrash2, FiTrendingUp, FiUploadCloud } from 'react-icons/fi';
-
+import {
+  FiCalendar,
+  FiCheckSquare,
+  FiCreditCard,
+  FiDownload,
+  FiEdit3,
+  FiExternalLink,
+  FiImage,
+  FiPlus,
+  FiTrash2,
+  FiTrendingUp,
+  FiUploadCloud,
+} from 'react-icons/fi';
 const Dashboard = ({ setIsAuthenticated, name }) => {
   const [fileData, setFileData] = useState([]);
   const [checkedRows, setCheckedRows] = useState([]);
@@ -26,6 +37,8 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const [eventId, setEventId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [availableCredits, setAvailableCredits] = useState(0);
+  const [subscriptionMessage, setSubscriptionMessage] = useState('');
   const navigate = useNavigate();
 
   const uploadcarePublicKey = process.env.REACT_APP_UPLOADCARE_PUBLIC_KEY;
@@ -65,16 +78,22 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       try {
         const apiUrl = process.env.REACT_APP_API_URL;
         const token = localStorage.getItem('token');
-        const response = await fetch(`${apiUrl}/api/uploadcare/delete/${image.uuid}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
+        const response = await fetch(
+          `${apiUrl}/api/uploadcare/delete/${image.uuid}`,
+          {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
           },
-        });
+        );
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.message || `Failed to delete image from Uploadcare (Status: ${response.status})`);
+          throw new Error(
+            errorData.message ||
+              `Failed to delete image from Uploadcare (Status: ${response.status})`,
+          );
         }
         setCandidateImages((prevImages) => {
           const newImages = { ...prevImages };
@@ -83,7 +102,10 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         });
       } catch (error) {
         console.error('Error deleting image from Uploadcare:', error.message);
-        alert(error.message || 'Failed to delete image from Uploadcare. Please try again.');
+        alert(
+          error.message ||
+            'Failed to delete image from Uploadcare. Please try again.',
+        );
       }
     } else {
       // If no image exists, just remove it from state
@@ -92,6 +114,29 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         delete newImages[index];
         return newImages;
       });
+    }
+  };
+
+  const fetchUserSubscription = async () => {
+    try {
+      const apiUrl = process.env.REACT_APP_API_URL;
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${apiUrl}/api/users`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to load subscription details');
+      }
+      const data = await response.json();
+      setAvailableCredits(data.subscription?.votingCredits || 0);
+      setSubscriptionMessage('');
+    } catch (err) {
+      console.error('Error fetching subscription:', err);
+      setSubscriptionMessage('Unable to load subscription details.');
     }
   };
 
@@ -106,7 +151,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
           },
         });
         if (!response.ok) {
@@ -128,6 +173,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     };
 
     fetchActiveEvents();
+    fetchUserSubscription();
     const interval = setInterval(fetchActiveEvents, 60000);
     return () => clearInterval(interval);
   }, []);
@@ -135,7 +181,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const handleEditEvent = async (eventId, event) => {
     const eventStartTime = new Date(`${event.date}T${event.startTime}`);
     const currentTime = new Date();
-    
+
     if (eventStartTime <= currentTime) {
       alert('Event has already started and cannot be edited.');
       return;
@@ -147,12 +193,12 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       const response = await fetch(`${apiUrl}/api/events/${eventId}`, {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
       if (!response.ok) throw new Error('Failed to fetch event');
       const eventToEdit = await response.json();
-      
+
       setEventDate(eventToEdit.date);
       setStartTime(eventToEdit.startTime);
       setStopTime(eventToEdit.stopTime);
@@ -165,18 +211,18 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
           ? eventToEdit.fileData
               .map((data, index) =>
                 eventToEdit.selectedData.some((selected) =>
-                  Object.keys(data).every((key) => selected[key] === data[key])
+                  Object.keys(data).every((key) => selected[key] === data[key]),
                 )
                   ? index
-                  : null
+                  : null,
               )
               .filter((index) => index !== null)
-          : []
+          : [],
       );
       setShowEventForm(true);
       setEditingEventId(eventId);
       setEventId(eventId);
-      
+
       const images = {};
       eventToEdit.candidateImages.forEach((img) => {
         images[img.candidateIndex] = { uuid: img.uuid, cdnUrl: img.cdnUrl };
@@ -217,7 +263,9 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     setCheckedRows((prevCheckedRows) => {
       let updatedCheckedRows;
       if (prevCheckedRows.includes(index)) {
-        updatedCheckedRows = prevCheckedRows.filter((rowIndex) => rowIndex !== index);
+        updatedCheckedRows = prevCheckedRows.filter(
+          (rowIndex) => rowIndex !== index,
+        );
       } else {
         updatedCheckedRows = [...prevCheckedRows, index];
       }
@@ -227,6 +275,11 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   };
 
   const handleCreateEvent = () => {
+    if (availableCredits <= 0) {
+      alert('No voting credits available. Redirecting to purchase page.');
+      navigate('/planspage');
+      return;
+    }
     const newEventId = uuidv4();
     setShowEventForm(true);
     setEventId(newEventId);
@@ -240,7 +293,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -249,10 +302,16 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         throw new Error(errorData.message || 'Failed to delete event');
       }
 
-      setActiveEvents((prevEvents) => prevEvents.filter((event) => event.id !== id));
+      setActiveEvents((prevEvents) =>
+        prevEvents.filter((event) => event.id !== id),
+      );
+      fetchUserSubscription();
     } catch (error) {
       console.error('Error deleting event:', error);
-      alert(error.message || 'There was an error deleting the event. Please try again.');
+      alert(
+        error.message ||
+          'There was an error deleting the event. Please try again.',
+      );
     }
   };
 
@@ -266,8 +325,18 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     if (!stopTime) missingFields.push('stopTime');
     if (!eventName) missingFields.push('name');
     if (!eventDescription) missingFields.push('description');
-    if (!selectedData || !Array.isArray(selectedData) || selectedData.length === 0) missingFields.push('selectedData');
-    if (!eventDate || !stopTime || !new Date(`${eventDate}T${stopTime}`).getTime()) missingFields.push('expiry');
+    if (
+      !selectedData ||
+      !Array.isArray(selectedData) ||
+      selectedData.length === 0
+    )
+      missingFields.push('selectedData');
+    if (
+      !eventDate ||
+      !stopTime ||
+      !new Date(`${eventDate}T${stopTime}`).getTime()
+    )
+      missingFields.push('expiry');
     if (!window.location.origin) missingFields.push('link');
 
     if (missingFields.length > 0) {
@@ -275,24 +344,32 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       return;
     }
 
-  const start = new Date(`${eventDate}T${startTime}`);
-  const stop = new Date(`${eventDate}T${stopTime}`);
+    if (!editingEventId && availableCredits <= 0) {
+      alert('No voting credits available. Redirecting to purchase page.');
+      navigate('/planspage');
+      return;
+    }
 
-  if (stop <= start) {
-    alert("Stop time must be greater than Start time.");
-    return;
-  }
+    const start = new Date(`${eventDate}T${startTime}`);
+    const stop = new Date(`${eventDate}T${stopTime}`);
+
+    if (stop <= start) {
+      alert('Stop time must be greater than Start time.');
+      return;
+    }
     const expiryTime = new Date(`${eventDate}T${stopTime}`).getTime();
     const currentEventId = editingEventId || eventId;
 
-    const serializedCandidateImages = checkedRows.map((rowIndex) => {
-      const image = candidateImages[rowIndex];
-      return {
-        candidateIndex: rowIndex,
-        uuid: image ? image.uuid : null,
-        cdnUrl: image ? image.cdnUrl : null,
-      };
-    }).filter(img => img.uuid && img.cdnUrl);
+    const serializedCandidateImages = checkedRows
+      .map((rowIndex) => {
+        const image = candidateImages[rowIndex];
+        return {
+          candidateIndex: rowIndex,
+          uuid: image ? image.uuid : null,
+          cdnUrl: image ? image.cdnUrl : null,
+        };
+      })
+      .filter((img) => img.uuid && img.cdnUrl);
 
     const formData = new FormData();
     formData.append('id', currentEventId);
@@ -304,8 +381,14 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     formData.append('selectedData', JSON.stringify(selectedData));
     formData.append('fileData', JSON.stringify(fileData));
     formData.append('expiry', expiryTime.toString());
-    formData.append('link', `${window.location.origin}/voting/${currentEventId}`);
-    formData.append('candidateImages', JSON.stringify(serializedCandidateImages));
+    formData.append(
+      'link',
+      `${window.location.origin}/voting/${currentEventId}`,
+    );
+    formData.append(
+      'candidateImages',
+      JSON.stringify(serializedCandidateImages),
+    );
 
     try {
       const isEditing = !!editingEventId;
@@ -319,14 +402,16 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       const response = await fetch(url, {
         method,
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: formData,
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Failed to ${isEditing ? 'update' : 'create'} event: ${errorText}`);
+        throw new Error(
+          `Failed to ${isEditing ? 'update' : 'create'} event: ${errorText}`,
+        );
       }
 
       const result = await response.json();
@@ -341,14 +426,17 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         selectedData,
         fileData,
         expiry: expiryTime,
-        link: result.link || `${window.location.origin}/voting/${currentEventId}`,
+        link:
+          result.link || `${window.location.origin}/voting/${currentEventId}`,
         candidateImages: serializedCandidateImages,
       };
 
       setActiveEvents((prev) => {
         let updatedEvents;
         if (isEditing) {
-          updatedEvents = prev.map((event) => (event.id === currentEventId ? eventDetails : event));
+          updatedEvents = prev.map((event) =>
+            event.id === currentEventId ? eventDetails : event,
+          );
         } else {
           updatedEvents = [...prev, eventDetails];
         }
@@ -358,81 +446,140 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
           return dateB - dateA;
         });
       });
-      
+
       setGeneratedLink(result.link || eventDetails.link);
       setEventCreated(true);
+      if (!editingEventId) {
+        setAvailableCredits((prev) => Math.max(0, prev - 1));
+      }
+      fetchUserSubscription();
       resetForm();
     } catch (error) {
-      console.error(`Error ${editingEventId ? 'updating' : 'creating'} event:`, error);
-      alert(error.message || `Error ${editingEventId ? 'updating' : 'creating'} the event. Please try again.`);
+      console.error(
+        `Error ${editingEventId ? 'updating' : 'creating'} event:`,
+        error,
+      );
+      alert(
+        error.message ||
+          `Error ${editingEventId ? 'updating' : 'creating'} the event. Please try again.`,
+      );
     }
   };
 
   return (
-    <div className="work-shell">
+    <div className='work-shell'>
       <Sidebar setIsAuthenticated={setIsAuthenticated} />
-      <main className="work-page">
-        <section className="work-hero work-hero--manage">
+      <main className='work-page'>
+        <section className='work-hero work-hero--manage'>
           <div>
-            <span className="work-kicker"><FiCheckSquare /> Voting Management</span>
+            <span className='work-kicker'>
+              <FiCheckSquare /> Voting Management
+            </span>
             <h1>Create and manage voting sessions.</h1>
-            <p>Upload voter/candidate data, configure schedules, attach candidate images, and publish secure voting links.</p>
+            <p>
+              Upload voter/candidate data, configure schedules, attach candidate
+              images, and publish secure voting links.
+            </p>
           </div>
-          <button className="work-button work-button--light" onClick={handleCreateEvent}>
-            <FiPlus /> Create Voting
+          <button
+            className='work-button work-button--light'
+            onClick={handleCreateEvent}
+            disabled={availableCredits <= 0}
+          >
+            <FiPlus /> {availableCredits > 0 ? 'Create Voting' : 'Buy Credits'}
           </button>
         </section>
 
-        <section className="work-stats-grid">
-          <div className="work-stat-card"><FiCalendar /><span>Events</span><strong>{activeEvents.length}</strong></div>
-          <div className="work-stat-card"><FiFileText /><span>Excel Rows</span><strong>{fileData.length}</strong></div>
-          <div className="work-stat-card"><FiCheckSquare /><span>Selected</span><strong>{selectedData.length}</strong></div>
+        <section className='work-stats-grid'>
+          <div className='work-stat-card'>
+            <FiCalendar />
+            <span>Events</span>
+            <strong>{activeEvents.length}</strong>
+          </div>
+          <div className='work-stat-card'>
+            <FiCreditCard />
+            <span>Available Credits</span>
+            <strong>{availableCredits}</strong>
+          </div>
         </section>
+        {availableCredits <= 0 && (
+          <div className='work-empty work-empty--error'>
+            No voting credits are available. You cannot create a new voting
+            event until you purchase credits.
+          </div>
+        )}
+        {subscriptionMessage && (
+          <div className='work-empty work-empty--error'>
+            {subscriptionMessage}
+          </div>
+        )}
 
-        <section className="work-manage-grid">
-          <div className="work-panel">
-            <div className="work-panel__header work-panel__header--row">
+        <section className='work-manage-grid'>
+          <div className='work-panel'>
+            <div className='work-panel__header work-panel__header--row'>
               <div>
-                <span className="work-kicker">Configured</span>
+                <span className='work-kicker'>Configured</span>
                 <h2>Voting Events</h2>
               </div>
-              <button className="work-button work-button--primary" onClick={handleCreateEvent}>
-                <FiPlus /> New Voting
+              <button
+                className='work-button work-button--primary'
+                onClick={handleCreateEvent}
+                disabled={availableCredits <= 0}
+              >
+                <FiPlus /> {availableCredits > 0 ? 'New Voting' : 'Buy Credits'}
               </button>
             </div>
 
-            <div className="work-card-list">
+            <div className='work-card-list'>
               {loading ? (
-                <div className="work-empty">Loading voting events...</div>
+                <div className='work-empty'>Loading voting events...</div>
               ) : error ? (
-                <div className="work-empty work-empty--error">{error}</div>
+                <div className='work-empty work-empty--error'>{error}</div>
               ) : activeEvents.length === 0 ? (
-                <div className="work-empty">No voting events yet. Create one to get started.</div>
+                <div className='work-empty'>
+                  No voting events yet. Create one to get started.
+                </div>
               ) : (
                 activeEvents.map((event) => (
-                  <article key={event.id} className="work-event-card">
-                    <div className="work-event-card__top">
+                  <article key={event.id} className='work-event-card'>
+                    <div className='work-event-card__top'>
                       <div>
-                        <span className="work-pill"><FiCalendar /> {event.date}</span>
+                        <span className='work-pill'>
+                          <FiCalendar /> {event.date}
+                        </span>
                         <h3>{event.name}</h3>
                       </div>
                     </div>
                     <p>{event.description}</p>
-                    <div className="work-event-meta">
+                    <div className='work-event-meta'>
                       <span>Start {event.startTime}</span>
                       <span>Stop {event.stopTime}</span>
                     </div>
-                    <a className="work-link" href={event.link} target="_blank" rel="noopener noreferrer">
+                    <a
+                      className='work-link'
+                      href={event.link}
+                      target='_blank'
+                      rel='noopener noreferrer'
+                    >
                       <FiExternalLink /> Open voting link
                     </a>
-                    <div className="work-actions">
-                      <button className="work-button work-button--danger" onClick={() => handleDeleteEvent(event.id)}>
+                    <div className='work-actions'>
+                      <button
+                        className='work-button work-button--danger'
+                        onClick={() => handleDeleteEvent(event.id)}
+                      >
                         <FiTrash2 /> Delete
                       </button>
-                      <button className="work-button work-button--accent" onClick={() => handleEditEvent(event.id, event)}>
+                      <button
+                        className='work-button work-button--accent'
+                        onClick={() => handleEditEvent(event.id, event)}
+                      >
                         <FiEdit3 /> Edit
                       </button>
-                      <button className="work-button work-button--primary" onClick={() => handleViewResults(event.id)}>
+                      <button
+                        className='work-button work-button--primary'
+                        onClick={() => handleViewResults(event.id)}
+                      >
                         <FiTrendingUp /> Results
                       </button>
                     </div>
@@ -442,63 +589,107 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
             </div>
           </div>
 
-          <div className="work-panel work-create-panel">
-            <div className="work-panel__header">
-              <span className="work-kicker">Builder</span>
+          <div className='work-panel work-create-panel'>
+            <div className='work-panel__header'>
+              <span className='work-kicker'>Builder</span>
               <h2>{editingEventId ? 'Edit Voting' : 'Create Voting'}</h2>
-              <p>Start a new voting configuration, then upload Excel data and select candidates.</p>
+              <p>
+                Start a new voting configuration, then upload Excel data and
+                select candidates.
+              </p>
             </div>
 
             {!showEventForm ? (
-              <div className="work-empty work-empty--action">
+              <div className='work-empty work-empty--action'>
                 <FiPlus />
                 <strong>No builder open</strong>
                 <span>Create a new voting event or edit an existing one.</span>
-                <button className="work-button work-button--primary" onClick={handleCreateEvent}>Create Voting</button>
+                <button
+                  className='work-button work-button--primary'
+                  onClick={handleCreateEvent}
+                >
+                  Create Voting
+                </button>
               </div>
             ) : (
-              <form onSubmit={handleEventFormSubmit} className="work-form">
-                <div className="work-form-grid">
-                  <label className="work-field">
+              <form onSubmit={handleEventFormSubmit} className='work-form'>
+                <div className='work-form-grid'>
+                  <label className='work-field'>
                     <span>Voting Date</span>
-                    <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required />
+                    <input
+                      type='date'
+                      value={eventDate}
+                      onChange={(e) => setEventDate(e.target.value)}
+                      required
+                    />
                   </label>
-                  <label className="work-field">
+                  <label className='work-field'>
                     <span>Start Time</span>
-                    <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
+                    <input
+                      type='time'
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      required
+                    />
                   </label>
-                  <label className="work-field">
+                  <label className='work-field'>
                     <span>Stop Time</span>
-                    <input type="time" value={stopTime} onChange={(e) => setStopTime(e.target.value)} required />
+                    <input
+                      type='time'
+                      value={stopTime}
+                      onChange={(e) => setStopTime(e.target.value)}
+                      required
+                    />
                   </label>
-                  <label className="work-field">
+                  <label className='work-field'>
                     <span>Voting Name</span>
-                    <input type="text" value={eventName} onChange={(e) => setEventName(e.target.value)} required />
+                    <input
+                      type='text'
+                      value={eventName}
+                      onChange={(e) => setEventName(e.target.value)}
+                      required
+                    />
                   </label>
-                  <label className="work-field work-field--full">
+                  <label className='work-field work-field--full'>
                     <span>Description</span>
-                    <textarea value={eventDescription} onChange={(e) => setEventDescription(e.target.value)} required />
+                    <textarea
+                      value={eventDescription}
+                      onChange={(e) => setEventDescription(e.target.value)}
+                      required
+                    />
                   </label>
                 </div>
 
-                <div className="work-upload-box">
+                <div className='work-upload-box'>
                   <div>
-                    <span><FiUploadCloud /> Upload Voters Excel File</span>
+                    <span>
+                      <FiUploadCloud /> Upload Voters Excel File
+                    </span>
                     <p>File uploaded: {fileName || 'No file selected'}</p>
                   </div>
-                  <input type="file" accept=".xlsx" onChange={handleFileUpload} />
-                  <a className="work-link" href="https://ucarecdn.com/fc73b582-f0fa-4069-aec3-d262bcae3236/" target="_blank" rel="noopener noreferrer" download="AllDetailsFile.xlsm">
+                  <input
+                    type='file'
+                    accept='.xlsx'
+                    onChange={handleFileUpload}
+                  />
+                  <a
+                    className='work-link'
+                    href='https://ucarecdn.com/fc73b582-f0fa-4069-aec3-d262bcae3236/'
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    download='AllDetailsFile.xlsm'
+                  >
                     <FiDownload /> Download sample file
                   </a>
                 </div>
 
                 {fileData.length > 0 && (
-                  <div className="work-table-wrap work-table-wrap--builder">
-                    <div className="work-panel__header">
-                      <span className="work-kicker">Candidates</span>
+                  <div className='work-table-wrap work-table-wrap--builder'>
+                    <div className='work-panel__header'>
+                      <span className='work-kicker'>Candidates</span>
                       <h2>Selected Candidates</h2>
                     </div>
-                    <table className="work-table">
+                    <table className='work-table'>
                       <thead>
                         <tr>
                           {Object.keys(fileData[0]).map((key) => (
@@ -516,23 +707,46 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                             ))}
                             <td>
                               {uploadcarePublicKey ? (
-                                <div className="work-image-upload-cell">
-                                  <Widget publicKey={uploadcarePublicKey} onChange={(fileInfo) => handleImageUpload(index, fileInfo)} clearable imagesOnly crop="1:1" maxFileSize={2000000} />
+                                <div className='work-image-upload-cell'>
+                                  <Widget
+                                    publicKey={uploadcarePublicKey}
+                                    onChange={(fileInfo) =>
+                                      handleImageUpload(index, fileInfo)
+                                    }
+                                    clearable
+                                    imagesOnly
+                                    crop='1:1'
+                                    maxFileSize={2000000}
+                                  />
                                   {candidateImages[index] && (
-                                    <div className="work-image-preview">
-                                      <img src={candidateImages[index].cdnUrl} alt={`Candidate ${index}`} />
-                                      <button type="button" className="work-button work-button--danger work-button--small" onClick={() => handleClearImage(index)}>
+                                    <div className='work-image-preview'>
+                                      <img
+                                        src={candidateImages[index].cdnUrl}
+                                        alt={`Candidate ${index}`}
+                                      />
+                                      <button
+                                        type='button'
+                                        className='work-button work-button--danger work-button--small'
+                                        onClick={() => handleClearImage(index)}
+                                      >
                                         <FiImage /> Clear
                                       </button>
                                     </div>
                                   )}
                                 </div>
                               ) : (
-                                <p className="work-error">Image upload disabled: Uploadcare public key missing.</p>
+                                <p className='work-error'>
+                                  Image upload disabled: Uploadcare public key
+                                  missing.
+                                </p>
                               )}
                             </td>
                             <td>
-                              <input type="checkbox" checked={checkedRows.includes(index)} onChange={() => handleCheckboxChange(index)} />
+                              <input
+                                type='checkbox'
+                                checked={checkedRows.includes(index)}
+                                onChange={() => handleCheckboxChange(index)}
+                              />
                             </td>
                           </tr>
                         ))}
@@ -541,16 +755,28 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                   </div>
                 )}
 
-                <button type="submit" className="work-button work-button--primary work-button--full">
-                  {editingEventId ? 'Update Voting Event' : 'Create Voting Event'}
+                <button
+                  type='submit'
+                  className='work-button work-button--primary work-button--full'
+                >
+                  {editingEventId
+                    ? 'Update Voting Event'
+                    : 'Create Voting Event'}
                 </button>
               </form>
             )}
 
             {eventCreated && (
-              <div className="work-success-box">
-                <h3>Voting {editingEventId ? 'Updated' : 'Created'} Successfully</h3>
-                <a className="work-link" href={generatedLink} target="_blank" rel="noopener noreferrer">
+              <div className='work-success-box'>
+                <h3>
+                  Voting {editingEventId ? 'Updated' : 'Created'} Successfully
+                </h3>
+                <a
+                  className='work-link'
+                  href={generatedLink}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                >
                   <FiExternalLink /> {generatedLink}
                 </a>
               </div>
@@ -560,7 +786,6 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       </main>
     </div>
   );
-
 };
 
 export default Dashboard;

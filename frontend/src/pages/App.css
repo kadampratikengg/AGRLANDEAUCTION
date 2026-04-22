@@ -11,11 +11,16 @@
   left: 0;
   width: 250px;
   height: 100vh;
-  background-color: #34495e;
+  background-color: #0f172a;
   padding: 20px;
   color: white;
-  transition: transform 0.3s ease, width 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    width 0.3s ease;
   z-index: 99;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 2px 0 15px rgba(0, 0, 0, 0.08);
+  overflow-y: auto;
 }
 
 .sidebar.minimized {
@@ -68,8 +73,8 @@
 }
 
 .sidebar ul li button:hover {
-  color: #3498db;
-  background-color: rgba(255, 255, 255, 0.1);
+  color: #60a5fa;
+  background-color: rgba(96, 165, 250, 0.14);
 }
 
 .sidebar.minimized ul li button {
@@ -78,11 +83,51 @@
   gap: 0;
 }
 
+.sidebar-mobile-toggle {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 110;
+  background-color: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: white;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-mobile-toggle.hidden {
+  display: none;
+}
+
 /* Main Content Styles */
 .main-content {
   display: flex;
   flex: 1;
-  margin-left: 40px;
+  margin-left: 0;
+}
+
+.work-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.work-page {
+  flex: 1;
+  margin-left: 260px;
+  padding: 20px;
+  transition:
+    margin-left 0.3s ease,
+    width 0.3s ease;
+  width: calc(100% - 260px);
+}
+
+.sidebar.minimized + .work-page {
+  margin-left: 60px;
+  width: calc(100% - 60px);
 }
 
 .content {
@@ -230,7 +275,9 @@
   flex: 1;
 }
 
-.profile-form, .password-form, .sub-user-form {
+.profile-form,
+.password-form,
+.sub-user-form {
   background: #f9f9f9;
   padding: 20px;
   border-radius: 8px;
@@ -334,7 +381,8 @@
   margin-bottom: 15px;
 }
 
-.org-logo, .profile-pic {
+.org-logo,
+.profile-pic {
   max-width: 100px;
   margin-top: 10px;
   display: block;
@@ -358,7 +406,8 @@
   border-collapse: collapse;
 }
 
-.sub-users-table th, .sub-users-table td {
+.sub-users-table th,
+.sub-users-table td {
   border: 1px solid #ddd;
   padding: 8px;
   text-align: left;
@@ -465,9 +514,9 @@
   color: #333;
 }
 
-.event-form-container input[type="date"],
-.event-form-container input[type="time"],
-.event-form-container input[type="text"],
+.event-form-container input[type='date'],
+.event-form-container input[type='time'],
+.event-form-container input[type='text'],
 .event-form-container textarea {
   padding: 10px;
   border: 1px solid #ddd;
@@ -476,9 +525,9 @@
   width: 100%;
 }
 
-.event-form-container input[type="date"]:focus,
-.event-form-container input[type="time"]:focus,
-.event-form-container input[type="text"]:focus,
+.event-form-container input[type='date']:focus,
+.event-form-container input[type='time']:focus,
+.event-form-container input[type='text']:focus,
 .event-form-container textarea:focus {
   border-color: #007bff;
   outline: none;
@@ -489,7 +538,7 @@
   height: 100px;
 }
 
-.event-form-container button[type="submit"] {
+.event-form-container button[type='submit'] {
   background-color: #007bff;
   color: white;
   padding: 12px 20px;
@@ -499,7 +548,7 @@
   cursor: pointer;
 }
 
-.event-form-container button[type="submit"]:hover {
+.event-form-container button[type='submit']:hover {
   background-color: #0056b3;
 }
 
@@ -605,7 +654,7 @@
   background-color: #f2f2f2;
 }
 
-.order-form-container input[type="number"] {
+.order-form-container input[type='number'] {
   width: 80px;
 }
 
@@ -717,13 +766,13 @@ a:hover {
     padding: 20px;
   }
 
-  .sidebar.open {
-    transform: translateX(0);
+  .sidebar.minimized {
+    width: 250px;
+    padding: 20px;
+    transform: translateX(-100%);
   }
 
-  .sidebar.minimized {
-    width: 50px;
-    padding: 20px 10px;
+  .sidebar.open {
     transform: translateX(0);
   }
 
@@ -738,12 +787,26 @@ a:hover {
     transition: margin-left 0.3s ease;
   }
 
+  .work-page {
+    margin-left: 0;
+    width: 100%;
+  }
+
   .sidebar.minimized ~ .content {
     margin-left: 0;
   }
 
   .sidebar.open ~ .content {
     margin-left: 250px;
+  }
+
+  .sidebar.open ~ .work-page {
+    margin-left: 250px;
+    width: calc(100% - 250px);
+  }
+
+  .sidebar-mobile-toggle {
+    display: flex;
   }
 
   .navbar nav ul {
@@ -775,7 +838,7 @@ a:hover {
     font-size: 14px;
   }
 
-  .order-form-container input[type="number"] {
+  .order-form-container input[type='number'] {
     width: 60px;
   }
 
@@ -783,7 +846,8 @@ a:hover {
     font-size: 14px;
   }
 
-  .sub-users-table th, .sub-users-table td {
+  .sub-users-table th,
+  .sub-users-table td {
     padding: 6px;
   }
 

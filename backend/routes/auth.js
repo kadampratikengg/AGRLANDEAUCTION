@@ -5,6 +5,11 @@ const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const multer = require('multer');
 const User = require('../models/User');
+const {
+  activatePendingFreeCredits,
+  FREE_CREDIT_AMOUNT,
+  FREE_CREDIT_DELAY_HOURS,
+} = require('../utils/subscription');
 const { transporter } = require('../utils/nodemailer');
 const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
@@ -16,7 +21,7 @@ let razorpay;
 try {
   razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
   });
 } catch (error) {
   console.error('❌ Razorpay initialization failed:', error.message);
@@ -42,7 +47,9 @@ router.post('/login', async (req, res) => {
 
     if (!email || !password) {
       console.log('❌ Missing email or password');
-      return res.status(400).json({ message: 'Email and password are required' });
+      return res
+        .status(400)
+        .json({ message: 'Email and password are required' });
     }
 
     const user = await User.findOne({ email });
@@ -59,29 +66,40 @@ router.post('/login', async (req, res) => {
 
     if (!process.env.JWT_SECRET) {
       console.error('❌ JWT_SECRET is not defined in environment variables');
-      return res.status(500).json({ message: 'Server configuration error: JWT_SECRET is not set' });
+      return res
+        .status(500)
+        .json({ message: 'Server configuration error: JWT_SECRET is not set' });
     }
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
       expiresIn: '2h',
     });
 
-    const isValidSubscription = user.subscription?.isValid && new Date(user.subscription.endDate) > new Date();
+    await activatePendingFreeCredits(user);
+
+    const availableVotingCredits = user.subscription?.votingCredits || 0;
+    const isValidSubscription =
+      user.subscription?.isValid && availableVotingCredits > 0;
 
     console.log('✅ Login successful for email:', email);
-    res.status(200).json({ 
-      message: 'Login successful', 
-      token, 
-      userId: user._id, 
+    res.status(200).json({
+      message: 'Login successful',
+      token,
+      userId: user._id,
       isValidSubscription,
-      subscription: user.subscription ? {
-        planDuration: user.subscription.planDuration,
-        startDate: user.subscription.startDate,
-        endDate: user.subscription.endDate,
-        amount: user.subscription.amount,
-        paymentId: user.subscription.paymentId,
-        orderId: user.subscription.orderId
-      } : null
+      subscription: user.subscription
+        ? {
+            planDuration: user.subscription.planDuration,
+            startDate: user.subscription.startDate,
+            endDate: user.subscription.endDate,
+            activationDate: user.subscription.activationDate,
+            amount: user.subscription.amount,
+            paymentId: user.subscription.paymentId,
+            orderId: user.subscription.orderId,
+            votingCredits: user.subscription.votingCredits || 0,
+            usedVotingCredits: user.subscription.usedVotingCredits || 0,
+          }
+        : null,
     });
   } catch (error) {
     console.error('❌ Login error:', error.message, error.stack);
@@ -102,34 +120,57 @@ router.post('/check-email', express.json(), async (req, res) => {
 });
 
 // Change Password
-router.post('/api/change-password', authenticateToken, express.json(), async (req, res) => {
-  const { newPassword } = req.body;
+router.post(
+  '/api/change-password',
+  authenticateToken,
+  express.json(),
+  async (req, res) => {
+    const { newPassword } = req.body;
 
-  try {
-    if (!newPassword || newPassword.length < 8) {
-      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    try {
+      if (!newPassword || newPassword.length < 8) {
+        return res
+          .status(400)
+          .json({ message: 'Password must be at least 8 characters' });
+      }
+
+      const user = await User.findById(req.user.userId);
+      if (!user) return res.status(404).json({ message: 'User not found' });
+
+      user.password = await bcrypt.hash(newPassword, 10);
+      await user.save();
+
+      res.status(200).json({ message: 'Password changed successfully' });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to change password' });
     }
-
-    const user = await User.findById(req.user.userId);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    user.password = await bcrypt.hash(newPassword, 10);
-    await user.save();
-
-    res.status(200).json({ message: 'Password changed successfully' });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to change password' });
-  }
-});
+  },
+);
 
 // Create Account
 router.post('/create-account', upload.none(), async (req, res) => {
-  const { email, password, confirmPassword, name, organization, logo, contact, phone, address, state, district, pincode, gstNumber } = req.body;
+  const {
+    email,
+    password,
+    confirmPassword,
+    name,
+    organization,
+    logo,
+    contact,
+    phone,
+    address,
+    state,
+    district,
+    pincode,
+    gstNumber,
+  } = req.body;
 
   try {
-    if (password !== confirmPassword) return res.status(400).json({ message: 'Passwords do not match' });
+    if (password !== confirmPassword)
+      return res.status(400).json({ message: 'Passwords do not match' });
     const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ message: 'Email already in use' });
+    if (existingUser)
+      return res.status(400).json({ message: 'Email already in use' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const baseUsername = email.split('@')[0] || `user_${Date.now()}`;
@@ -148,14 +189,34 @@ router.post('/create-account', upload.none(), async (req, res) => {
       state,
       district,
       pincode,
-      gstNumber
+      gstNumber,
+      subscription: {
+        planDuration: `${FREE_CREDIT_AMOUNT} Free Voting Credits`,
+        activationDate: new Date(
+          Date.now() + FREE_CREDIT_DELAY_HOURS * 60 * 60 * 1000,
+        ),
+        isValid: false,
+        votingCredits: 0,
+        usedVotingCredits: 0,
+        amount: 0,
+        paymentId: 'FREE_TRIAL',
+        orderId: 'FREE_TRIAL',
+      },
     });
 
     const savedUser = await newUser.save();
 
-    const token = jwt.sign({ userId: savedUser._id }, process.env.JWT_SECRET, { expiresIn: '2h' });
+    const token = jwt.sign({ userId: savedUser._id }, process.env.JWT_SECRET, {
+      expiresIn: '2h',
+    });
 
-    res.status(201).json({ message: 'Account created successfully', token, userId: savedUser._id });
+    res
+      .status(201)
+      .json({
+        message: 'Account created successfully',
+        token,
+        userId: savedUser._id,
+      });
   } catch (error) {
     res.status(500).json({ message: 'Server error during account creation' });
   }
@@ -165,9 +226,20 @@ router.post('/create-account', upload.none(), async (req, res) => {
 router.post('/create-order', express.json(), async (req, res) => {
   const { amount, currency } = req.body;
   try {
-    const options = { amount, currency: currency || 'INR', receipt: `receipt_${Date.now()}`, payment_capture: 1 };
+    const options = {
+      amount,
+      currency: currency || 'INR',
+      receipt: `receipt_${Date.now()}`,
+      payment_capture: 1,
+    };
     const order = await razorpay.orders.create(options);
-    res.status(200).json({ order_id: order.id, amount: order.amount, currency: order.currency });
+    res
+      .status(200)
+      .json({
+        order_id: order.id,
+        amount: order.amount,
+        currency: order.currency,
+      });
   } catch (error) {
     res.status(500).json({ message: 'Failed to create order' });
   }
@@ -175,10 +247,23 @@ router.post('/create-order', express.json(), async (req, res) => {
 
 // Verify Payment
 router.post('/verify-payment', express.json(), async (req, res) => {
-  const { razorpay_payment_id, razorpay_order_id, razorpay_signature, userId, planDuration, amount, validityDays } = req.body;
+  const {
+    razorpay_payment_id,
+    razorpay_order_id,
+    razorpay_signature,
+    userId,
+    planDuration,
+    amount,
+    validityDays,
+    votingCredits,
+    mrp,
+    discount,
+    gst,
+  } = req.body;
 
   try {
-    const generatedSignature = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+    const generatedSignature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest('hex');
 
@@ -199,18 +284,17 @@ router.post('/verify-payment', express.json(), async (req, res) => {
         isValid: user.subscription.isValid,
         amount: user.subscription.amount,
         paymentId: user.subscription.paymentId,
-        orderId: user.subscription.orderId
+        orderId: user.subscription.orderId,
+        votingCredits: user.subscription.votingCredits || 0,
+        usedVotingCredits: user.subscription.usedVotingCredits || 0,
+        mrp: user.subscription.mrp,
+        discount: user.subscription.discount,
+        gst: user.subscription.gst,
       });
     }
 
-    // Determine start date for new subscription
     const today = new Date();
-    let startDate = today;
-    if (user.subscription && user.subscription.isValid && new Date(user.subscription.endDate) > today) {
-      startDate = new Date(user.subscription.endDate);
-    }
-
-    // Calculate end date based on validityDays
+    const startDate = today;
     const subscriptionEndDate = new Date(startDate);
     subscriptionEndDate.setDate(subscriptionEndDate.getDate() + validityDays);
 
@@ -219,16 +303,30 @@ router.post('/verify-payment', express.json(), async (req, res) => {
       startDate,
       endDate: subscriptionEndDate,
       isValid: true,
+      votingCredits:
+        (user.subscription?.votingCredits || 0) + Number(votingCredits || 0),
+      usedVotingCredits: user.subscription?.usedVotingCredits || 0,
+      mrp,
+      discount,
+      gst,
       amount,
       paymentId: razorpay_payment_id,
-      orderId: razorpay_order_id
+      orderId: razorpay_order_id,
     };
 
     await user.save();
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '2h' });
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: '2h',
+    });
 
-    res.status(200).json({ message: 'Payment verified and subscription updated', token, userId: user._id });
+    res
+      .status(200)
+      .json({
+        message: 'Payment verified and subscription updated',
+        token,
+        userId: user._id,
+      });
   } catch (error) {
     console.error('❌ Payment verification error:', error.message, error.stack);
     res.status(500).json({ message: 'Payment verification failed' });

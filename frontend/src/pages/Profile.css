@@ -10,15 +10,23 @@
   --profile-shadow: 0 24px 70px rgba(37, 48, 35, 0.16);
   min-height: 100vh;
   background:
-    radial-gradient(circle at 12% 10%, rgba(215, 240, 110, 0.38), transparent 28%),
-    radial-gradient(circle at 88% 0%, rgba(246, 182, 75, 0.28), transparent 26%),
+    radial-gradient(
+      circle at 12% 10%,
+      rgba(215, 240, 110, 0.38),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 88% 0%,
+      rgba(246, 182, 75, 0.28),
+      transparent 26%
+    ),
     linear-gradient(135deg, #f8f5ec 0%, #eef4e9 48%, #f7f1e2 100%);
   color: var(--profile-ink);
 }
 
 .profile-page {
   box-sizing: border-box;
-  margin-left: 90px;
+  min-height: 100vh;
   padding: 34px clamp(18px, 3vw, 46px) 46px;
 }
 
@@ -37,7 +45,11 @@
   border-radius: 34px;
   background:
     linear-gradient(135deg, rgba(23, 33, 26, 0.94), rgba(31, 122, 77, 0.9)),
-    repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 1px, transparent 1px 14px);
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.06) 0 1px,
+      transparent 1px 14px
+    );
   box-shadow: var(--profile-shadow);
   color: #fffaf0;
   overflow: hidden;
@@ -260,7 +272,10 @@
   color: var(--profile-ink);
   font: inherit;
   outline: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
 .profile-field input:focus {
@@ -287,7 +302,10 @@
   font-weight: 900;
   font-size: 14px;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .profile-icon-button svg {

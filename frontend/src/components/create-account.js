@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Widget } from '@uploadcare/react-widget';
 import { toast, ToastContainer } from 'react-toastify';
 import { FiArrowRight, FiBriefcase, FiHash, FiLock, FiMail, FiMapPin, FiPhone, FiUploadCloud, FiUser } from 'react-icons/fi';
@@ -28,7 +28,6 @@ const CreateAccountPage = () => {
     gstNumber: ''
   });
   const uploadcarePublicKey = process.env.REACT_APP_UPLOADCARE_PUBLIC_KEY;
-  const navigate = useNavigate();
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -116,17 +115,10 @@ const CreateAccountPage = () => {
       );
 
       localStorage.setItem('token', createResponse.data.token);
+      localStorage.setItem('userId', createResponse.data.userId);
+      localStorage.setItem('isAuthenticated', 'true');
 
-      navigate('/planspage', {
-        state: {
-          email,
-          password,
-          confirmPassword,
-          profileData: userData,
-          userId: createResponse.data.userId,
-          token: createResponse.data.token
-        }
-      });
+      window.location.href = '/dashboard';
     } catch (error) {
       const errorMsg = error.response?.data?.message || error.message || 'Failed to create account';
       setErrorMessage(errorMsg);
