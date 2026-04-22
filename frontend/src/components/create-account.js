@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Widget } from '@uploadcare/react-widget';
 import { toast, ToastContainer } from 'react-toastify';
+import { FiArrowRight, FiBriefcase, FiHash, FiLock, FiMail, FiMapPin, FiPhone, FiUploadCloud, FiUser } from 'react-icons/fi';
 import 'react-toastify/dist/ReactToastify.css';
 import './LoginPage.css';
 
@@ -39,7 +40,7 @@ const CreateAccountPage = () => {
   };
 
   const handlePincodeChange = async (e) => {
-    const pincode = e.target.value;
+    const pincode = e.target.value.replace(/\D/g, '').slice(0, 6);
     setUserData({ ...userData, pincode });
     if (pincode.length === 6) {
       try {
@@ -68,7 +69,6 @@ const CreateAccountPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Form submitted, attempting to create account...');
 
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(email)) {
@@ -86,7 +86,6 @@ const CreateAccountPage = () => {
     setLoading(true);
 
     try {
-      // check if email exists
       const checkResponse = await axios.post(
         `${process.env.REACT_APP_API_URL}/check-email`,
         { email },
@@ -99,7 +98,6 @@ const CreateAccountPage = () => {
         return;
       }
 
-      // prepare profile + account data
       const formData = new FormData();
       for (const key in userData) {
         formData.append(key, userData[key]);
@@ -108,7 +106,6 @@ const CreateAccountPage = () => {
       formData.append('password', password);
       formData.append('confirmPassword', confirmPassword);
 
-      // create account in backend
       const createResponse = await axios.post(
         `${process.env.REACT_APP_API_URL}/create-account`,
         formData,
@@ -118,10 +115,8 @@ const CreateAccountPage = () => {
         }
       );
 
-      // save token
       localStorage.setItem('token', createResponse.data.token);
 
-      // navigate to PlansPage with user details
       navigate('/planspage', {
         state: {
           email,
@@ -133,8 +128,7 @@ const CreateAccountPage = () => {
         }
       });
     } catch (error) {
-      const errorMsg =
-        error.response?.data?.message || error.message || 'Failed to create account';
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to create account';
       setErrorMessage(errorMsg);
       toast.error(errorMsg);
       setLoading(false);
@@ -142,98 +136,126 @@ const CreateAccountPage = () => {
   };
 
   return (
-    <div className="create-account-page" style={{ overflow: 'auto' }}>
+    <main className="auth-shell auth-shell--wide">
       <ToastContainer position="top-right" autoClose={3000} />
-      <form onSubmit={handleSubmit} className="create-account-form">
-        <h2>Create New Account</h2>
-        <div className="input-field">
-          <label>Email</label>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          {emailError && <p className="error">{emailError}</p>}
+
+      <section className="auth-art-panel auth-art-panel--signup">
+        <span className="auth-badge"><FiBriefcase /> Voting admin setup</span>
+        <h1>Create your voting management account.</h1>
+        <p>Add administrator, organization, location, and billing-ready details before choosing a voting plan.</p>
+        <div className="auth-art-card">
+          <strong>Election-ready onboarding</strong>
+          <span>Your profile supports voting event setup, voter verification, and result management.</span>
         </div>
-        <div className="input-field">
-          <label>Password</label>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-        </div>
-        <div className="input-field">
-          <label>Confirm Password</label>
-          <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
-          {passwordError && <p className="error">{passwordError}</p>}
+      </section>
+
+      <section className="auth-card auth-card--large" aria-label="Create account form">
+        <div className="auth-card__header">
+          <span className="auth-kicker">Get started</span>
+          <h2>Register for Voting</h2>
+          <p>Enter voting administrator credentials and organization profile information.</p>
         </div>
 
-        <h3>Profile Details</h3>
-        
-          <div className="form-left">
-            <div className="input-field">
-              <label>Full Name:</label>
-              <input type="text" name="name" value={userData.name} onChange={handleInputChange} required />
+        <form onSubmit={handleSubmit} className="auth-form">
+          <div className="auth-form-section">
+            <h3>Voting Account Access</h3>
+            <div className="auth-form-grid">
+              <label className="auth-field">
+                <span><FiMail /> Email</span>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" required />
+              </label>
+              <label className="auth-field">
+                <span><FiLock /> Password</span>
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Minimum 8 characters" required />
+              </label>
+              <label className="auth-field">
+                <span><FiLock /> Confirm Password</span>
+                <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repeat password" required />
+              </label>
             </div>
-            <div className="input-field">
-              <label>Organization Name:</label>
-              <input type="text" name="organization" value={userData.organization} onChange={handleInputChange} />
-            </div>
-            <div className="input-field">
-              <label>Contact Email:</label>
-              <input type="email" name="contact" value={userData.contact} onChange={handleInputChange} />
-            </div>
-            <div className="input-field">
-              <label>Phone Number:</label>
-              <input type="tel" name="phone" value={userData.phone} onChange={handleInputChange} />
-            </div>
-            <div className="input-field">
-              <label>Address:</label>
-              <input type="text" name="address" value={userData.address} onChange={handleInputChange} />
-            </div>
-            <div className="input-field">
-              <label>Pincode:</label>
-              <input type="text" name="pincode" value={userData.pincode} onChange={handlePincodeChange} maxLength="6" />
-            </div>
-            <div className="input-field">
-              <label>District:</label>
-              <input type="text" name="district" value={userData.district} disabled />
-            </div>
-            <div className="input-field">
-              <label>State:</label>
-              <input type="text" name="state" value={userData.state} disabled />
-            </div>
-            <div className="input-field">
-              <label>GST Number:</label>
-              <input type="text" name="gstNumber" value={userData.gstNumber} onChange={handleInputChange} />
-            </div>
-            <div className="input-field">
-            <label>Organization Logo:</label>
-              {uploadcarePublicKey ? (
-                <Widget
-                  publicKey={uploadcarePublicKey}
-                  onChange={handleLogoUpload}
-                  clearable
-                  imagesOnly
-                  crop="1:1"
-                  maxFileSize={2000000}
-                />
-              ) : (
-                <p style={{ color: 'red' }}>
-                  Image upload disabled: Uploadcare public key missing. Check .env configuration.
-                </p>
-              )}
-              {userData.logo && (
-                <img
-                  src={`https://ucarecdn.com/${userData.logo}/-/preview/-/scale_crop/200x200/center/`}
-                  alt="Organization Logo"
-                />
-              )}
+            {emailError && <p className="auth-error">{emailError}</p>}
+            {passwordError && <p className="auth-error">{passwordError}</p>}
+          </div>
+
+          <div className="auth-form-section">
+            <h3>Voting Organization Details</h3>
+            <div className="auth-form-grid">
+              <label className="auth-field">
+                <span><FiUser /> Full Name</span>
+                <input type="text" name="name" value={userData.name} onChange={handleInputChange} required />
+              </label>
+              <label className="auth-field">
+                <span><FiBriefcase /> Organization</span>
+                <input type="text" name="organization" value={userData.organization} onChange={handleInputChange} />
+              </label>
+              <label className="auth-field">
+                <span><FiMail /> Contact Email</span>
+                <input type="email" name="contact" value={userData.contact} onChange={handleInputChange} />
+              </label>
+              <label className="auth-field">
+                <span><FiPhone /> Phone Number</span>
+                <input type="tel" name="phone" value={userData.phone} onChange={handleInputChange} />
+              </label>
+              <label className="auth-field auth-field--full">
+                <span><FiMapPin /> Address</span>
+                <input type="text" name="address" value={userData.address} onChange={handleInputChange} />
+              </label>
+              <label className="auth-field">
+                <span><FiHash /> Pincode</span>
+                <input type="text" name="pincode" value={userData.pincode} onChange={handlePincodeChange} maxLength="6" inputMode="numeric" />
+              </label>
+              <label className="auth-field">
+                <span><FiMapPin /> District</span>
+                <input type="text" name="district" value={userData.district} disabled />
+              </label>
+              <label className="auth-field">
+                <span><FiMapPin /> State</span>
+                <input type="text" name="state" value={userData.state} disabled />
+              </label>
+              <label className="auth-field">
+                <span><FiHash /> GST Number</span>
+                <input type="text" name="gstNumber" value={userData.gstNumber} onChange={handleInputChange} />
+              </label>
             </div>
           </div>
 
-        
-     
+          <div className="auth-upload-box">
+            <div>
+              <span><FiUploadCloud /> Organization Logo</span>
+              <p>Optional square logo. Max 2 MB.</p>
+            </div>
+            {uploadcarePublicKey ? (
+              <Widget
+                publicKey={uploadcarePublicKey}
+                onChange={handleLogoUpload}
+                clearable
+                imagesOnly
+                crop="1:1"
+                maxFileSize={2000000}
+              />
+            ) : (
+              <p className="auth-error">Uploadcare public key missing. Check .env configuration.</p>
+            )}
+            {userData.logo && (
+              <img
+                src={`https://ucarecdn.com/${userData.logo}/-/preview/-/scale_crop/200x200/center/`}
+                alt="Organization Logo"
+                className="auth-logo-preview"
+              />
+            )}
+          </div>
 
-        <button type="submit" disabled={loading}>
-          {loading ? 'Processing...' : 'Create Account'}
-        </button>
-        {errorMessage && <p className="error">{errorMessage}</p>}
-      </form>
-    </div>
+          <button type="submit" className="auth-primary-button" disabled={loading}>
+            {loading ? 'Processing...' : 'Register Voting Account'} <FiArrowRight />
+          </button>
+          {errorMessage && <p className="auth-error auth-error--block">{errorMessage}</p>}
+        </form>
+
+        <div className="auth-links">
+          <Link to="/">Already registered? Login to voting</Link>
+        </div>
+      </section>
+    </main>
   );
 };
 

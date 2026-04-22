@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { FiArrowRight, FiLock, FiMail, FiShield } from 'react-icons/fi';
 import './LoginPage.css';
 
 const LoginPage = ({ onLogin }) => {
@@ -35,8 +36,7 @@ const LoginPage = ({ onLogin }) => {
         localStorage.setItem('isAuthenticated', 'true');
         onLogin();
       } else {
-        // Redirect to PlansPage when subscription is invalid/expired
-        navigate("/planspage", {
+        navigate('/planspage', {
           state: { email, userId: response.data.userId }
         });
         setErrorMessage('Your subscription has expired. Please select a plan to continue.');
@@ -49,39 +49,61 @@ const LoginPage = ({ onLogin }) => {
   };
 
   return (
-    <div className="login-page">
-      <form onSubmit={handleSubmit}>
-        <h2>Login For Voting</h2>
-        <div className="input-field">
-          <label>Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          {emailError && <p className="error">{emailError}</p>}
+    <main className="auth-shell auth-shell--compact">
+      <section className="auth-art-panel">
+        <span className="auth-badge"><FiShield /> Secure voting access</span>
+        <h1>Manage digital voting with confidence and control.</h1>
+        <p>Sign in to create voting events, manage voter data, monitor participation, and view results from one dashboard.</p>
+        <div className="auth-art-card">
+          <strong>Voting control room</strong>
+          <span>Protected access for election and voting administrators.</span>
         </div>
-        <div className="input-field">
-          <label>Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
+      </section>
+
+      <section className="auth-card" aria-label="Login form">
+        <div className="auth-card__header">
+          <span className="auth-kicker">Welcome back</span>
+          <h2>Voting Login</h2>
+          <p>Use your registered voting administrator account to continue.</p>
         </div>
-        <button type="submit" disabled={loading}>
-          {loading ? 'Processing...' : 'Login'}
-        </button>
-        {errorMessage && <p className="error">{errorMessage}</p>}
-        <div className="links">
-          <a href="/forgot-password">Forgot Password?</a>
-          <br /><br />
-          <a href="/create-account">Create New Account</a>
+
+        <form onSubmit={handleSubmit} className="auth-form">
+          <label className="auth-field">
+            <span><FiMail /> Email</span>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@example.com"
+              required
+            />
+          </label>
+          {emailError && <p className="auth-error">{emailError}</p>}
+
+          <label className="auth-field">
+            <span><FiLock /> Password</span>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password"
+              required
+            />
+          </label>
+
+          <button type="submit" className="auth-primary-button" disabled={loading}>
+            {loading ? 'Processing...' : 'Login to Voting'} <FiArrowRight />
+          </button>
+
+          {errorMessage && <p className="auth-error auth-error--block">{errorMessage}</p>}
+        </form>
+
+        <div className="auth-links">
+          <Link to="/forgot-password">Forgot password?</Link>
+          <Link to="/create-account">Create new account</Link>
         </div>
-      </form>
-    </div>
+      </section>
+    </main>
   );
 };
 

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
-import './App.css';
+import './Workspace.css';
 import { Widget } from '@uploadcare/react-widget';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { FaEdit, FaTrash } from 'react-icons/fa';
+import { FiEdit3, FiPlus, FiShield, FiTrash2, FiUploadCloud, FiUsers, FiX } from 'react-icons/fi';
 
 const Settings = ({ setIsAuthenticated }) => {
   const [subUserEmail, setSubUserEmail] = useState('');
@@ -43,6 +43,15 @@ const Settings = ({ setIsAuthenticated }) => {
     } catch (err) {
       toast.error(err.message);
     }
+  };
+
+  const resetSubUserForm = () => {
+    setSubUserFullName('');
+    setSubUserEmail('');
+    setSubUserPassword('');
+    setSubUserRole('user');
+    setSubUserProfilePic(null);
+    setSubUserPermissions({ voting: true, manage: true });
   };
 
   const handleCreateSubUser = async (e) => {
@@ -87,12 +96,7 @@ const Settings = ({ setIsAuthenticated }) => {
       }
 
       toast.success('Sub-user created successfully');
-      setSubUserFullName('');
-      setSubUserEmail('');
-      setSubUserPassword('');
-      setSubUserRole('user');
-      setSubUserProfilePic(null);
-      setSubUserPermissions({ voting: true, manage: true });
+      resetSubUserForm();
       setShowCreateForm(false);
       fetchSubUsers();
     } catch (err) {
@@ -159,11 +163,7 @@ const Settings = ({ setIsAuthenticated }) => {
       }
 
       toast.success('Sub-user updated successfully');
-      setSubUserFullName('');
-      setSubUserEmail('');
-      setSubUserRole('user');
-      setSubUserProfilePic(null);
-      setSubUserPermissions({ voting: true, manage: true });
+      resetSubUserForm();
       setEditingUserId(null);
       setShowCreateForm(false);
       fetchSubUsers();
@@ -211,193 +211,156 @@ const Settings = ({ setIsAuthenticated }) => {
     setShowCreateForm(!showCreateForm);
     if (showCreateForm) {
       setEditingUserId(null);
-      setSubUserFullName('');
-      setSubUserEmail('');
-      setSubUserPassword('');
-      setSubUserRole('user');
-      setSubUserProfilePic(null);
-      setSubUserPermissions({ voting: true, manage: true });
+      resetSubUserForm();
     }
   };
 
   return (
-    <div className="app-container">
+    <div className="work-shell">
       <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} closeOnClick draggable pauseOnHover />
-      <div className="main-content">
-        <Sidebar setIsAuthenticated={setIsAuthenticated} />
-        <div className="content">
-          <h2>Settings</h2>
-          <div className="sub-user-section">
-            {showCreateForm && (
-              <div className="modal-overlay">
-                <div className="modal-content">
-                  <button className="modal-close" onClick={toggleCreateForm}>×</button>
-                  <form onSubmit={handleSaveSubUser} className="sub-user-form">
-                    <h3>{editingUserId ? 'Edit Sub-User' : 'Create Sub-User'}</h3>
-                    <div className="form-group">
-                      <label>Full Name:</label>
-                      <input
-                        type="text"
-                        value={subUserFullName}
-                        onChange={(e) => setSubUserFullName(e.target.value)}
-                        className="form-control"
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Email:</label>
-                      <input
-                        type="email"
-                        value={subUserEmail}
-                        onChange={(e) => setSubUserEmail(e.target.value)}
-                        className="form-control"
-                        required
-                      />
-                    </div>
-                    {!editingUserId && (
-                      <div className="form-group">
-                        <label>Password:</label>
-                        <input
-                          type="password"
-                          value={subUserPassword}
-                          onChange={(e) => setSubUserPassword(e.target.value)}
-                          className="form-control"
-                          required
-                        />
-                      </div>
-                    )}
-                    <div className="form-group">
-                      <label>Role:</label>
-                      <select
-                        value={subUserRole}
-                        onChange={(e) => setSubUserRole(e.target.value)}
-                        className="form-control"
-                      >
-                        <option value="user">User</option>
-                        <option value="admin">Admin</option>
-                        <option value="moderator">Moderator</option>
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label>Permissions:</label>
-                      <div>
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={subUserPermissions.voting}
-                            onChange={() =>
-                              setSubUserPermissions((prev) => ({
-                                ...prev,
-                                voting: !prev.voting,
-                              }))
-                            }
+      <Sidebar setIsAuthenticated={setIsAuthenticated} />
+      <main className="work-page">
+        <section className="work-hero work-hero--settings">
+          <div>
+            <span className="work-kicker"><FiShield /> Access Settings</span>
+            <h1>Manage voting team access.</h1>
+            <p>Create sub-users, assign voting permissions, and control who can manage voting events.</p>
+          </div>
+          <button className="work-button work-button--light" onClick={toggleCreateForm}>
+            <FiPlus /> Create Sub-User
+          </button>
+        </section>
+
+        <section className="work-stats-grid">
+          <div className="work-stat-card"><FiUsers /><span>Sub-Users</span><strong>{subUsers.length}</strong></div>
+          <div className="work-stat-card"><FiShield /><span>Voting Access</span><strong>{subUsers.filter(user => user.permissions?.includes('/voting/:eventId')).length}</strong></div>
+          <div className="work-stat-card"><FiEdit3 /><span>Manage Access</span><strong>{subUsers.filter(user => user.permissions?.includes('/manage')).length}</strong></div>
+        </section>
+
+        <section className="work-panel">
+          <div className="work-panel__header work-panel__header--row">
+            <div>
+              <span className="work-kicker">Users</span>
+              <h2>Sub-Users</h2>
+            </div>
+            <button className="work-button work-button--primary" onClick={toggleCreateForm}>
+              <FiPlus /> Create Sub-User
+            </button>
+          </div>
+
+          <div className="work-table-wrap">
+            <table className="work-table">
+              <thead>
+                <tr>
+                  <th>Full Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Profile</th>
+                  <th>Permissions</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {subUsers && subUsers.length > 0 ? (
+                  subUsers.map((user, index) => (
+                    <tr key={user._id || `user-${index}`}>
+                      <td>{user.fullName}</td>
+                      <td>{user.email}</td>
+                      <td><span className="work-pill">{user.role}</span></td>
+                      <td>
+                        {user.profilePic ? (
+                          <img
+                            src={`https://ucarecdn.com/${user.profilePic}/-/preview/-/scale_crop/50x50/center/`}
+                            alt="Profile"
+                            className="work-avatar"
                           />
-                          Access to Voting
-                        </label>
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={subUserPermissions.manage}
-                            onChange={() =>
-                              setSubUserPermissions((prev) => ({
-                                ...prev,
-                                manage: !prev.manage,
-                              }))
-                            }
-                          />
-                          Access to Manage
-                        </label>
-                      </div>
-                    </div>
-                    <div className="form-group">
-                      <label>Profile Picture:</label>
-                      {uploadcarePublicKey ? (
-                        <Widget
-                          publicKey={uploadcarePublicKey}
-                          onChange={(fileInfo) => setSubUserProfilePic(fileInfo)}
-                          clearable
-                          imagesOnly
-                          crop="1:1"
-                          maxFileSize={2000000}
-                        />
-                      ) : (
-                        <p style={{ color: 'red' }}>
-                          Image upload disabled: Uploadcare public key missing. Check .env configuration.
-                        </p>
-                      )}
-                    </div>
-                    <button type="submit" className="btn btn-primary flex items-center">
-                      <FaEdit className="mr-2" /> {editingUserId ? 'Update Sub-User' : 'Create Sub-User'}
-                    </button>
-                  </form>
-                </div>
-              </div>
-            )}
-            <div className="sub-users-table">
-              <div className="sub-users-header">
-                <h3>Sub-Users</h3>
-                <button className="btn btn-secondary create-sub-user-btn" onClick={toggleCreateForm}>
-                  Create Sub-User
-                </button>
-              </div>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Full Name</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                    <th>Profile Picture</th>
-                    <th>Permissions</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {subUsers && subUsers.length > 0 ? (
-                    subUsers.map((user, index) => (
-                      <tr key={user._id || `user-${index}`}>
-                        <td>{user.fullName}</td>
-                        <td>{user.email}</td>
-                        <td>{user.role}</td>
-                        <td>
-                          {user.profilePic && (
-                            <img
-                              src={`https://ucarecdn.com/${user.profilePic}/-/preview/-/scale_crop/50x50/center/`}
-                              alt="Profile"
-                              className="profile-pic"
-                            />
-                          )}
-                        </td>
-                        <td>{user.permissions.join(', ')}</td>
-                        <td className="action-buttons">
-                     
-                          <button
-                            className="action-btn edit-btn"
-                            onClick={() => handleEditSubUser(user._id)}
-                            title="Edit"
-                          >
-                            <FaEdit size={18} />
+                        ) : (
+                          <span className="work-avatar work-avatar--empty">{user.fullName?.charAt(0) || 'U'}</span>
+                        )}
+                      </td>
+                      <td>{user.permissions.join(', ')}</td>
+                      <td>
+                        <div className="work-icon-actions">
+                          <button className="work-icon-button" onClick={() => handleEditSubUser(user._id)} title="Edit">
+                            <FiEdit3 />
                           </button>
-                          <button
-                            className="action-btn delete-btn"
-                            onClick={() => handleDeleteSubUser(user._id)}
-                            title="Delete"
-                          >
-                            <FaTrash size={18} />
+                          <button className="work-icon-button work-icon-button--danger" onClick={() => handleDeleteSubUser(user._id)} title="Delete">
+                            <FiTrash2 />
                           </button>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr key="no-users">
-                      <td colSpan="6">No sub-users found</td>
+                        </div>
+                      </td>
                     </tr>
+                  ))
+                ) : (
+                  <tr key="no-users">
+                    <td colSpan="6">No sub-users found</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {showCreateForm && (
+          <div className="work-modal-overlay">
+            <div className="work-modal-card">
+              <button className="work-modal-close" onClick={toggleCreateForm}><FiX /></button>
+              <form onSubmit={handleSaveSubUser} className="work-form">
+                <div className="work-panel__header">
+                  <span className="work-kicker">{editingUserId ? 'Edit Access' : 'New Access'}</span>
+                  <h2>{editingUserId ? 'Edit Sub-User' : 'Create Sub-User'}</h2>
+                </div>
+
+                <div className="work-form-grid">
+                  <label className="work-field">
+                    <span>Full Name</span>
+                    <input type="text" value={subUserFullName} onChange={(e) => setSubUserFullName(e.target.value)} required />
+                  </label>
+                  <label className="work-field">
+                    <span>Email</span>
+                    <input type="email" value={subUserEmail} onChange={(e) => setSubUserEmail(e.target.value)} required />
+                  </label>
+                  {!editingUserId && (
+                    <label className="work-field">
+                      <span>Password</span>
+                      <input type="password" value={subUserPassword} onChange={(e) => setSubUserPassword(e.target.value)} required />
+                    </label>
                   )}
-                </tbody>
-              </table>
+                  <label className="work-field">
+                    <span>Role</span>
+                    <select value={subUserRole} onChange={(e) => setSubUserRole(e.target.value)}>
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
+                      <option value="moderator">Moderator</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div className="work-check-grid">
+                  <label><input type="checkbox" checked={subUserPermissions.voting} onChange={() => setSubUserPermissions((prev) => ({ ...prev, voting: !prev.voting }))} /> Access to Voting</label>
+                  <label><input type="checkbox" checked={subUserPermissions.manage} onChange={() => setSubUserPermissions((prev) => ({ ...prev, manage: !prev.manage }))} /> Access to Manage</label>
+                </div>
+
+                <div className="work-upload-box">
+                  <div>
+                    <span><FiUploadCloud /> Profile Picture</span>
+                    <p>Optional square image for the sub-user.</p>
+                  </div>
+                  {uploadcarePublicKey ? (
+                    <Widget publicKey={uploadcarePublicKey} onChange={(fileInfo) => setSubUserProfilePic(fileInfo)} clearable imagesOnly crop="1:1" maxFileSize={2000000} />
+                  ) : (
+                    <p className="work-error">Image upload disabled: Uploadcare public key missing.</p>
+                  )}
+                </div>
+
+                <button type="submit" className="work-button work-button--primary work-button--full">
+                  <FiEdit3 /> {editingUserId ? 'Update Sub-User' : 'Create Sub-User'}
+                </button>
+              </form>
             </div>
           </div>
-        </div>
-      </div>
+        )}
+      </main>
     </div>
   );
 };

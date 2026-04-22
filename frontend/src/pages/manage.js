@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import './App.css';
+import './Workspace.css';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { v4 as uuidv4 } from 'uuid';
 import { Widget } from '@uploadcare/react-widget';
 import Sidebar from './Sidebar';
+import { FiCalendar, FiCheckSquare, FiDownload, FiEdit3, FiExternalLink, FiFileText, FiImage, FiPlus, FiTrash2, FiTrendingUp, FiUploadCloud } from 'react-icons/fi';
 
 const Dashboard = ({ setIsAuthenticated, name }) => {
   const [fileData, setFileData] = useState([]);
@@ -368,221 +369,198 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   };
 
   return (
-    <div className="app-container">
-      <div className="main-content">
-        <Sidebar setIsAuthenticated={setIsAuthenticated} />
-        <div className="content">
-          <h2>Voting</h2>
-          <div className="sections-container">
-            <div className="current-section">
-              <h3>Voting</h3>
+    <div className="work-shell">
+      <Sidebar setIsAuthenticated={setIsAuthenticated} />
+      <main className="work-page">
+        <section className="work-hero work-hero--manage">
+          <div>
+            <span className="work-kicker"><FiCheckSquare /> Voting Management</span>
+            <h1>Create and manage voting sessions.</h1>
+            <p>Upload voter/candidate data, configure schedules, attach candidate images, and publish secure voting links.</p>
+          </div>
+          <button className="work-button work-button--light" onClick={handleCreateEvent}>
+            <FiPlus /> Create Voting
+          </button>
+        </section>
+
+        <section className="work-stats-grid">
+          <div className="work-stat-card"><FiCalendar /><span>Events</span><strong>{activeEvents.length}</strong></div>
+          <div className="work-stat-card"><FiFileText /><span>Excel Rows</span><strong>{fileData.length}</strong></div>
+          <div className="work-stat-card"><FiCheckSquare /><span>Selected</span><strong>{selectedData.length}</strong></div>
+        </section>
+
+        <section className="work-manage-grid">
+          <div className="work-panel">
+            <div className="work-panel__header work-panel__header--row">
+              <div>
+                <span className="work-kicker">Configured</span>
+                <h2>Voting Events</h2>
+              </div>
+              <button className="work-button work-button--primary" onClick={handleCreateEvent}>
+                <FiPlus /> New Voting
+              </button>
+            </div>
+
+            <div className="work-card-list">
               {loading ? (
-                <p>Loading...</p>
+                <div className="work-empty">Loading voting events...</div>
               ) : error ? (
-                <p>{error}</p>
+                <div className="work-empty work-empty--error">{error}</div>
               ) : activeEvents.length === 0 ? (
-                <p>No events.</p>
+                <div className="work-empty">No voting events yet. Create one to get started.</div>
               ) : (
                 activeEvents.map((event) => (
-                  <div key={event.id} className="event">
-                    <h4>{event.name}</h4>
+                  <article key={event.id} className="work-event-card">
+                    <div className="work-event-card__top">
+                      <div>
+                        <span className="work-pill"><FiCalendar /> {event.date}</span>
+                        <h3>{event.name}</h3>
+                      </div>
+                    </div>
                     <p>{event.description}</p>
-                    <p>Date: {event.date}</p>
-                    <p>Start: {event.startTime} - Stop: {event.stopTime}</p>
-                    <a href={event.link} target="_blank" rel="noopener noreferrer">{event.link}</a>
-                    <div className="event-actions" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                      <button
-                        className="btn-primary"
-                        style={{ background: '#ff4d4d', color: 'white', padding: '5px 10px', border: 'none', borderRadius: '5px' }}
-                        onClick={() => handleDeleteEvent(event.id)}
-                        title="Delete Event"
-                      >
-                        Delete
+                    <div className="work-event-meta">
+                      <span>Start {event.startTime}</span>
+                      <span>Stop {event.stopTime}</span>
+                    </div>
+                    <a className="work-link" href={event.link} target="_blank" rel="noopener noreferrer">
+                      <FiExternalLink /> Open voting link
+                    </a>
+                    <div className="work-actions">
+                      <button className="work-button work-button--danger" onClick={() => handleDeleteEvent(event.id)}>
+                        <FiTrash2 /> Delete
                       </button>
-                      <button
-                        className="btn-primary"
-                        style={{ background: '#4CAF50', color: 'white', padding: '5px 10px', border: 'none', borderRadius: '5px' }}
-                        onClick={() => handleEditEvent(event.id, event)}
-                      >
-                        Edit
+                      <button className="work-button work-button--accent" onClick={() => handleEditEvent(event.id, event)}>
+                        <FiEdit3 /> Edit
                       </button>
-                      <button
-                        className="btn-primary"
-                        style={{ background: '#2196F3', color: 'white', padding: '5px 10px', border: 'none', borderRadius: '5px' }}
-                        onClick={() => handleViewResults(event.id)}
-                      >
-                        Results
+                      <button className="work-button work-button--primary" onClick={() => handleViewResults(event.id)}>
+                        <FiTrendingUp /> Results
                       </button>
                     </div>
-                  </div>
+                  </article>
                 ))
               )}
             </div>
-
-            <div className="create-section">
-              <h3>Create</h3>
-              <button className="create-event-btn" onClick={handleCreateEvent}>Create Voting</button>
-
-              {showEventForm && (
-                <div className="form-wrapper">
-                  <form onSubmit={handleEventFormSubmit} className="event-form-container">
-                    <h3>{editingEventId ? 'Edit Event' : 'Create Event'}</h3>
-                    <div className="form-group">
-                      <label htmlFor="eventDate">Voting Date:</label>
-                      <input
-                        type="date"
-                        id="eventDate"
-                        value={eventDate}
-                        onChange={(e) => setEventDate(e.target.value)}
-                        required
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label htmlFor="startTime">Start Time:</label>
-                      <input
-                        type="time"
-                        id="startTime"
-                        value={startTime}
-                        onChange={(e) => setStartTime(e.target.value)}
-                        required
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label htmlFor="stopTime">Stop Time:</label>
-                      <input
-                        type="time"
-                        id="stopTime"
-                        value={stopTime}
-                        onChange={(e) => setStopTime(e.target.value)}
-                        required
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label htmlFor="eventName">Voting Name:</label>
-                      <input
-                        type="text"
-                        id="eventName"
-                        value={eventName}
-                        onChange={(e) => setEventName(e.target.value)}
-                        required
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label htmlFor="eventDescription">Description:</label>
-                      <textarea
-                        id="eventDescription"
-                        value={eventDescription}
-                        onChange={(e) => setEventDescription(e.target.value)}
-                        required
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label htmlFor="fileUpload">Upload Voters Excel File:</label>
-                      <input
-                        type="file"
-                        id="fileUpload"
-                        accept=".xlsx"
-                        onChange={handleFileUpload}
-                      />
-                      <p>File Uploaded: {fileName || 'AllDetailsFile.xlsx'}</p>
-                      <a href="https://ucarecdn.com/fc73b582-f0fa-4069-aec3-d262bcae3236/" target="_blank" rel="noopener noreferrer" download="AllDetailsFile.xlsm">
-                        Download Sample File
-                      </a>
-                    </div>
-
-                    {fileData.length > 0 && (
-                      <div>
-                        <h4>Selected Candidates:</h4>
-                        <table className="sub-users-table">
-                          <thead>
-                            <tr>
-                              {Object.keys(fileData[0]).map((key) => (
-                                <th key={key}>{key}</th>
-                              ))}
-                              <th>Image</th>
-                              <th>Check</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {fileData.map((data, index) => (
-                              <tr key={index}>
-                                {Object.values(data).map((value, i) => (
-                                  <td key={i}>{value}</td>
-                                ))}
-                                <td>
-                                  {uploadcarePublicKey ? (
-                                    <>
-                                      <Widget
-                                        publicKey={uploadcarePublicKey}
-                                        onChange={(fileInfo) => handleImageUpload(index, fileInfo)}
-                                        clearable
-                                        imagesOnly
-                                        crop="1:1"
-                                        maxFileSize={2000000}
-                                      />
-                                      {candidateImages[index] && (
-                                        <div>
-                                          <img
-                                            src={candidateImages[index].cdnUrl}
-                                            alt={`Candidate ${index}`}
-                                            style={{ maxWidth: '80px', margin: '5px 0' }}
-                                          />
-                                          <button
-                                            className="btn-primary btn-small"
-                                            onClick={() => handleClearImage(index)}
-                                          >
-                                            Clear Image
-                                          </button>
-                                        </div>
-                                      )}
-                                    </>
-                                  ) : (
-                                    <p className="error-message">
-                                      Image upload disabled: Uploadcare public key missing. Check .env configuration.
-                                    </p>
-                                  )}
-                                </td>
-                                <td>
-                                  <input
-                                    type="checkbox"
-                                    checked={checkedRows.includes(index)}
-                                    onChange={() => handleCheckboxChange(index)}
-                                  />
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-
-                    <button type="submit" className="btn-primary">{editingEventId ? 'Update Event' : 'Create Event'}</button>
-                  </form>
-
-                  {eventCreated && (
-                    <div className="event-success-message">
-                      <h4>Voting {editingEventId ? 'Updated' : 'Created'} Successfully</h4>
-                      <p>
-                        Your Voting link:{' '}
-                        <a href={generatedLink} target="_blank" rel="noopener noreferrer">
-                          {generatedLink}
-                        </a>
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
           </div>
-        </div>
-      </div>
+
+          <div className="work-panel work-create-panel">
+            <div className="work-panel__header">
+              <span className="work-kicker">Builder</span>
+              <h2>{editingEventId ? 'Edit Voting' : 'Create Voting'}</h2>
+              <p>Start a new voting configuration, then upload Excel data and select candidates.</p>
+            </div>
+
+            {!showEventForm ? (
+              <div className="work-empty work-empty--action">
+                <FiPlus />
+                <strong>No builder open</strong>
+                <span>Create a new voting event or edit an existing one.</span>
+                <button className="work-button work-button--primary" onClick={handleCreateEvent}>Create Voting</button>
+              </div>
+            ) : (
+              <form onSubmit={handleEventFormSubmit} className="work-form">
+                <div className="work-form-grid">
+                  <label className="work-field">
+                    <span>Voting Date</span>
+                    <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required />
+                  </label>
+                  <label className="work-field">
+                    <span>Start Time</span>
+                    <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
+                  </label>
+                  <label className="work-field">
+                    <span>Stop Time</span>
+                    <input type="time" value={stopTime} onChange={(e) => setStopTime(e.target.value)} required />
+                  </label>
+                  <label className="work-field">
+                    <span>Voting Name</span>
+                    <input type="text" value={eventName} onChange={(e) => setEventName(e.target.value)} required />
+                  </label>
+                  <label className="work-field work-field--full">
+                    <span>Description</span>
+                    <textarea value={eventDescription} onChange={(e) => setEventDescription(e.target.value)} required />
+                  </label>
+                </div>
+
+                <div className="work-upload-box">
+                  <div>
+                    <span><FiUploadCloud /> Upload Voters Excel File</span>
+                    <p>File uploaded: {fileName || 'No file selected'}</p>
+                  </div>
+                  <input type="file" accept=".xlsx" onChange={handleFileUpload} />
+                  <a className="work-link" href="https://ucarecdn.com/fc73b582-f0fa-4069-aec3-d262bcae3236/" target="_blank" rel="noopener noreferrer" download="AllDetailsFile.xlsm">
+                    <FiDownload /> Download sample file
+                  </a>
+                </div>
+
+                {fileData.length > 0 && (
+                  <div className="work-table-wrap work-table-wrap--builder">
+                    <div className="work-panel__header">
+                      <span className="work-kicker">Candidates</span>
+                      <h2>Selected Candidates</h2>
+                    </div>
+                    <table className="work-table">
+                      <thead>
+                        <tr>
+                          {Object.keys(fileData[0]).map((key) => (
+                            <th key={key}>{key}</th>
+                          ))}
+                          <th>Image</th>
+                          <th>Select</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {fileData.map((data, index) => (
+                          <tr key={index}>
+                            {Object.values(data).map((value, i) => (
+                              <td key={i}>{value}</td>
+                            ))}
+                            <td>
+                              {uploadcarePublicKey ? (
+                                <div className="work-image-upload-cell">
+                                  <Widget publicKey={uploadcarePublicKey} onChange={(fileInfo) => handleImageUpload(index, fileInfo)} clearable imagesOnly crop="1:1" maxFileSize={2000000} />
+                                  {candidateImages[index] && (
+                                    <div className="work-image-preview">
+                                      <img src={candidateImages[index].cdnUrl} alt={`Candidate ${index}`} />
+                                      <button type="button" className="work-button work-button--danger work-button--small" onClick={() => handleClearImage(index)}>
+                                        <FiImage /> Clear
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="work-error">Image upload disabled: Uploadcare public key missing.</p>
+                              )}
+                            </td>
+                            <td>
+                              <input type="checkbox" checked={checkedRows.includes(index)} onChange={() => handleCheckboxChange(index)} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                <button type="submit" className="work-button work-button--primary work-button--full">
+                  {editingEventId ? 'Update Voting Event' : 'Create Voting Event'}
+                </button>
+              </form>
+            )}
+
+            {eventCreated && (
+              <div className="work-success-box">
+                <h3>Voting {editingEventId ? 'Updated' : 'Created'} Successfully</h3>
+                <a className="work-link" href={generatedLink} target="_blank" rel="noopener noreferrer">
+                  <FiExternalLink /> {generatedLink}
+                </a>
+              </div>
+            )}
+          </div>
+        </section>
+      </main>
     </div>
   );
+
 };
 
 export default Dashboard;

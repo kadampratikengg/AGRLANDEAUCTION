@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { FiCalendar, FiClock, FiImage, FiPlay, FiUsers } from 'react-icons/fi';
 import './Voting.css';
 
 const Voting = () => {
@@ -10,7 +11,6 @@ const Voting = () => {
   const [error, setError] = useState(null);
   const [canStartVoting, setCanStartVoting] = useState(false);
 
-  // Check if voting is within the allowed time window
   const checkVotingTime = useCallback((eventData) => {
     if (eventData.date && eventData.startTime && eventData.stopTime) {
       const [startHours, startMinutes] = eventData.startTime.split(':');
@@ -22,21 +22,19 @@ const Voting = () => {
     }
   }, []);
 
-  // Fetch event data from backend or cache
   const fetchEvent = useCallback(async (bypassCache = false) => {
     try {
       if (!bypassCache) {
         const localEvent = JSON.parse(localStorage.getItem(`event-${eventId}`));
         const now = new Date().getTime();
         if (localEvent && localEvent.expiry > now) {
-          console.log('Using cached event data');
           setEvent(localEvent);
           checkVotingTime(localEvent);
+          setLoading(false);
           return;
         }
       }
 
-      console.log('Fetching event from backend:', eventId);
       const token = localStorage.getItem('token');
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/events/${eventId}`, {
         headers: {
@@ -51,102 +49,106 @@ const Voting = () => {
       }
 
       const eventData = await response.json();
-      console.log('Received event data:', eventData);
-      console.log('Candidate Images:', eventData.candidateImages);
-      
       eventData.expiry = new Date().getTime() + 60 * 1000;
       setEvent(eventData);
       localStorage.setItem(`event-${eventId}`, JSON.stringify(eventData));
-      setLoading(false);
       checkVotingTime(eventData);
     } catch (err) {
-      console.error('Fetch error:', err.message);
       setError(err.message);
+    } finally {
       setLoading(false);
     }
   }, [eventId, checkVotingTime]);
 
   useEffect(() => {
     fetchEvent(true);
-    const interval = setInterval(() => fetchEvent(true), 60000); // Refresh every minute
-    return () => clearInterval(interval); // Cleanup interval on unmount
+    const interval = setInterval(() => fetchEvent(true), 60000);
+    return () => clearInterval(interval);
   }, [fetchEvent]);
 
-  // Render loading, error, or no event states
-  if (loading) return <div className="voting-container">Loading...</div>;
-  if (error) return <div className="voting-container">Error: {error}</div>;
-  if (!event) return <div className="voting-container">Event not found</div>;
+  if (loading) return <div className="vote-public-shell"><div className="vote-state-card">Loading voting event...</div></div>;
+  if (error) return <div className="vote-public-shell"><div className="vote-state-card vote-state-card--error">Error: {error}</div></div>;
+  if (!event) return <div className="vote-public-shell"><div className="vote-state-card">Voting event not found.</div></div>;
 
-  // Get unique keys for table headers from selectedData
   const headers = event.selectedData && event.selectedData.length > 0
     ? Object.keys(event.selectedData[0])
     : [];
 
   return (
-    <div className="voting-container">
-      <h1>{event.name}</h1>
-      <p><strong>Description:</strong> {event.description}</p>
-      <p><strong>Date:</strong> {event.date}</p>
-      <p><strong>Time:</strong> {event.startTime} - {event.stopTime}</p>
+    <main className="vote-public-shell">
+      <section className="vote-hero">
+        <div>
+          <span className="vote-kicker"><FiUsers /> Voting Event</span>
+          <h1>{event.name}</h1>
+          <p>{event.description}</p>
+        </div>
+        <div className="vote-hero-card">
+          <span><FiCalendar /> {event.date}</span>
+          <strong><FiClock /> {event.startTime} - {event.stopTime}</strong>
+        </div>
+      </section>
 
-      {/* Candidate Data Table */}
-      <div className="candidate-table-container">
-        <h2>Candidates</h2>
+      <section className="vote-summary-grid">
+        <div className="vote-summary-card"><FiUsers /><span>Candidates</span><strong>{event.selectedData?.length || 0}</strong></div>
+        <div className="vote-summary-card"><FiCalendar /><span>Date</span><strong>{event.date}</strong></div>
+        <div className="vote-summary-card"><FiClock /><span>Status</span><strong>{canStartVoting ? 'Open' : 'Closed'}</strong></div>
+      </section>
+
+      <section className="vote-card">
+        <div className="vote-card-header">
+          <div>
+            <span className="vote-kicker">Ballot Preview</span>
+            <h2>Candidates</h2>
+          </div>
+          {canStartVoting && (
+            <button className="vote-primary-button" onClick={() => navigate(`/voting/${eventId}/start`)}>
+              <FiPlay /> Start Voting
+            </button>
+          )}
+        </div>
+
         {event.selectedData && event.selectedData.length > 0 ? (
-          <table className="candidate-table">
-            <thead>
-              <tr>
-                {headers.map((header) => (
-                  <th key={header}>{header}</th>
-                ))}
-                <th>Image</th>
-              </tr>
-            </thead>
-            <tbody>
-              {event.selectedData.map((candidate, index) => {
-                // Map candidate to its corresponding image using candidateIndex
-                const image = event.candidateImages?.find(
-                  (img) => Number(img.candidateIndex) === index
-                );
-                console.log(`Candidate index: ${index}, Image:`, image);
-                return (
-                  <tr key={index}>
-                    {headers.map((header) => (
-                      <td key={header}>{candidate[header]}</td>
-                    ))}
-                    <td>
-                      {image && image.cdnUrl ? (
-                        <img
-                          src={image.cdnUrl}
-                          alt={`Candidate ${index + 1}`}
-                          className="candidate-image"
-                          style={{ maxWidth: '100px', height: 'auto' }}
-                          onError={(e) => {
-                            console.error(`Failed to load image for candidate ${index + 1}:`, image.cdnUrl);
-                            e.target.style.display = 'none';
-                          }}
-                        />
-                      ) : (
-                        <span className="no-image">No image</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="vote-table-wrap">
+            <table className="vote-table">
+              <thead>
+                <tr>
+                  {headers.map((header) => <th key={header}>{header}</th>)}
+                  <th>Image</th>
+                </tr>
+              </thead>
+              <tbody>
+                {event.selectedData.map((candidate, index) => {
+                  const image = event.candidateImages?.find((img) => Number(img.candidateIndex) === index);
+                  return (
+                    <tr key={index}>
+                      {headers.map((header) => <td key={header}>{candidate[header]}</td>)}
+                      <td>
+                        {image && image.cdnUrl ? (
+                          <img
+                            src={image.cdnUrl}
+                            alt={`Candidate ${index + 1}`}
+                            className="vote-candidate-image"
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                          />
+                        ) : (
+                          <span className="vote-no-image"><FiImage /> No image</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         ) : (
-          <p>No candidates available for this event.</p>
+          <div className="vote-state-card">No candidates available for this voting event.</div>
         )}
-      </div>
 
-      {/* Voting Action */}
-      {canStartVoting ? (
-        <button onClick={() => navigate(`/voting/${eventId}/start`)}>Start Voting</button>
-      ) : (
-        <p>Voting is not available at this time.</p>
-      )}
-    </div>
+        {!canStartVoting && (
+          <div className="vote-closed-note">Voting is not available at this time.</div>
+        )}
+      </section>
+    </main>
   );
 };
 

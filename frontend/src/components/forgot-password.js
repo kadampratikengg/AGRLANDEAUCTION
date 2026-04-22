@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { FiArrowLeft, FiMail, FiSend, FiShield } from 'react-icons/fi';
 import './LoginPage.css';
 
 const ForgotPasswordPage = () => {
@@ -6,34 +8,31 @@ const ForgotPasswordPage = () => {
   const [emailError, setEmailError] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Email validation regex
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
-    // Check if email matches the regex pattern
     if (!emailRegex.test(email)) {
       setEmailError('Please enter a valid email address.');
       return;
     }
 
-    // Clear the error if email is valid
     setEmailError('');
+    setMessage('');
+    setError('');
+    setLoading(true);
 
     try {
-      // Send request to backend
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/forgot-password`, 
-
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email }),
-        }
-      );
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/forgot-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
 
       const data = await response.json();
 
@@ -44,31 +43,56 @@ const ForgotPasswordPage = () => {
       }
     } catch (err) {
       setError('Server error. Please try again later.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className='login-page'>
-      <form onSubmit={handleSubmit}>
-        <h2>Forgot Password</h2>
+    <main className="auth-shell auth-shell--compact">
+      <section className="auth-art-panel auth-art-panel--reset">
+        <span className="auth-badge"><FiShield /> Voting account recovery</span>
+        <h1>Restore access to your voting dashboard.</h1>
+        <p>Enter your registered voting administrator email and we will send password reset instructions.</p>
+        <div className="auth-art-card">
+          <strong>Voting password reset</strong>
+          <span>Use the same email connected to your voting administrator account.</span>
+        </div>
+      </section>
 
-        <div className='input-field'>
-          <label>Email</label>
-          <input
-            type='email'
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          {emailError && <p className='error'>{emailError}</p>}
+      <section className="auth-card" aria-label="Forgot password form">
+        <div className="auth-card__header">
+          <span className="auth-kicker">Recovery</span>
+          <h2>Reset Voting Password</h2>
+          <p>We will send a reset link if the voting account email is registered.</p>
         </div>
 
-        <button type='submit'>Send Reset Link</button>
+        <form onSubmit={handleSubmit} className="auth-form">
+          <label className="auth-field">
+            <span><FiMail /> Email</span>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@example.com"
+              required
+            />
+          </label>
+          {emailError && <p className="auth-error">{emailError}</p>}
 
-        {message && <p className='message'>{message}</p>}
-        {error && <p className='error'>{error}</p>}
-      </form>
-    </div>
+          <button type="submit" className="auth-primary-button" disabled={loading}>
+            {loading ? 'Sending...' : 'Send Voting Reset Link'} <FiSend />
+          </button>
+
+          {message && <p className="auth-message">{message}</p>}
+          {error && <p className="auth-error auth-error--block">{error}</p>}
+        </form>
+
+        <div className="auth-links">
+          <Link to="/"><FiArrowLeft /> Back to voting login</Link>
+        </div>
+      </section>
+    </main>
   );
 };
 

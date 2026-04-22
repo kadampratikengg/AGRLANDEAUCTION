@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
+import { FiAward, FiCalendar, FiClock, FiImage, FiTrendingUp, FiUsers } from 'react-icons/fi';
 import './result.css';
 
 const Result = () => {
@@ -10,7 +11,6 @@ const Result = () => {
   const [error, setError] = useState(null);
   const [isVotingComplete, setIsVotingComplete] = useState(false);
 
-  // Fetch event and vote data from backend
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -33,7 +33,6 @@ const Result = () => {
       const eventData = await eventResponse.json();
       setEvent(eventData);
 
-      // Check if voting is complete
       const stopDateTime = new Date(`${eventData.date}T${eventData.stopTime}`);
       const currentDateTime = new Date();
       setIsVotingComplete(currentDateTime >= stopDateTime);
@@ -53,7 +52,6 @@ const Result = () => {
       const votesData = await votesResponse.json();
       setVotes(votesData);
     } catch (err) {
-      console.error('Fetch error:', err.message);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -64,7 +62,6 @@ const Result = () => {
     fetchData();
   }, [fetchData]);
 
-  // Calculate vote counts
   const voteCounts = votes.reduce((acc, vote) => {
     acc[vote.candidate] = (acc[vote.candidate] || 0) + 1;
     return acc;
@@ -76,56 +73,89 @@ const Result = () => {
     image: event?.candidateImages?.find(img => Number(img.candidateIndex) === index)?.cdnUrl || null,
   })) || [];
 
-  if (loading) return <div className="result-container">Loading...</div>;
-  if (error) return <div className="result-container">Error: {error}</div>;
-  if (!event) return <div className="result-container">Event not found</div>;
-  if (!isVotingComplete) return <div className="result-container">Voting is still running. Results will be available after {event.stopTime} on {event.date}.</div>;
+  const totalVotes = votes.length;
+  const winner = candidateResults.length > 0
+    ? candidateResults.reduce((top, candidate) => candidate.votes > top.votes ? candidate : top, candidateResults[0])
+    : null;
+
+  if (loading) return <div className="result-shell"><div className="result-state-card">Loading voting results...</div></div>;
+  if (error) return <div className="result-shell"><div className="result-state-card result-state-card--error">Error: {error}</div></div>;
+  if (!event) return <div className="result-shell"><div className="result-state-card">Voting event not found.</div></div>;
+  if (!isVotingComplete) {
+    return (
+      <main className="result-shell">
+        <section className="result-hero">
+          <span className="result-kicker"><FiClock /> Results Pending</span>
+          <h1>{event.name}</h1>
+          <p>Voting is still running. Results will be available after {event.stopTime} on {event.date}.</p>
+        </section>
+      </main>
+    );
+  }
 
   return (
-    <div className="result-container">
-      <h1>{event.name} - Voting Results</h1>
-      <p><strong>Description:</strong> {event.description}</p>
-      <p><strong>Date:</strong> {event.date}</p>
-      <p><strong>Time:</strong> {event.startTime} - {event.stopTime}</p>
+    <main className="result-shell">
+      <section className="result-hero">
+        <div>
+          <span className="result-kicker"><FiTrendingUp /> Voting Results</span>
+          <h1>{event.name}</h1>
+          <p>{event.description}</p>
+        </div>
+        <div className="result-hero-card">
+          <span><FiCalendar /> {event.date}</span>
+          <strong><FiClock /> {event.startTime} - {event.stopTime}</strong>
+        </div>
+      </section>
 
-      <h2>Results</h2>
-      {candidateResults.length > 0 ? (
-        <table>
-          <thead>
-            <tr>
-              <th>Candidate</th>
-              <th>Votes</th>
-              <th>Image</th>
-            </tr>
-          </thead>
-          <tbody>
-            {candidateResults.map((candidate, index) => (
-              <tr key={index}>
-                <td>{candidate.name}</td>
-                <td>{candidate.votes}</td>
-                <td>
-                  {candidate.image ? (
-                    <img
-                      src={candidate.image}
-                      alt={`Candidate ${candidate.name}`}
-                      style={{ maxWidth: '100px', height: 'auto' }}
-                      onError={(e) => {
-                        console.error(`Failed to load image for candidate ${candidate.name}:`, candidate.image);
-                        e.target.style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    'No image'
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p>No candidates found for this event.</p>
-      )}
-    </div>
+      <section className="result-summary-grid">
+        <div className="result-summary-card"><FiUsers /><span>Total Votes</span><strong>{totalVotes}</strong></div>
+        <div className="result-summary-card"><FiAward /><span>Leading Candidate</span><strong>{winner?.name || 'No votes'}</strong></div>
+        <div className="result-summary-card"><FiTrendingUp /><span>Candidates</span><strong>{candidateResults.length}</strong></div>
+      </section>
+
+      <section className="result-card">
+        <div className="result-card-header">
+          <span className="result-kicker">Final Count</span>
+          <h2>Candidate Results</h2>
+        </div>
+
+        {candidateResults.length > 0 ? (
+          <div className="result-table-wrap">
+            <table className="result-table">
+              <thead>
+                <tr>
+                  <th>Candidate</th>
+                  <th>Votes</th>
+                  <th>Image</th>
+                </tr>
+              </thead>
+              <tbody>
+                {candidateResults.map((candidate, index) => (
+                  <tr key={index}>
+                    <td>{candidate.name}</td>
+                    <td><strong>{candidate.votes}</strong></td>
+                    <td>
+                      {candidate.image ? (
+                        <img
+                          src={candidate.image}
+                          alt={`Candidate ${candidate.name}`}
+                          className="result-candidate-image"
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <span className="result-no-image"><FiImage /> No image</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="result-state-card">No candidates found for this voting event.</div>
+        )}
+      </section>
+    </main>
   );
 };
 

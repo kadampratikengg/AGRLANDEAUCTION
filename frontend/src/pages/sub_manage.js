@@ -1,15 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import './dashboard.css';
-import {
-  FaUserCircle,
-  FaChevronLeft,
-  FaChevronRight,
-  FaTachometerAlt,
-  FaCogs,
-  FaGavel,
-} from 'react-icons/fa';
+import './Workspace.css';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
+import Sidebar from './Sidebar';
+import { FiCalendar, FiCheckSquare, FiDownload, FiEdit3, FiExternalLink, FiFileText, FiImage, FiPlus, FiTrash2, FiTrendingUp, FiUploadCloud } from 'react-icons/fi';
 
 const Manage = ({ setIsAuthenticated }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -294,280 +288,163 @@ const Manage = ({ setIsAuthenticated }) => {
   };
 
   return (
-    <div className='dashboard'>
-      <div className={`sidebar ${isSidebarMinimized ? 'minimized' : ''}`}>
-        <button className='minimize-btn' onClick={toggleSidebar}>
-          {isSidebarMinimized ? <FaChevronRight /> : <FaChevronLeft />}
-        </button>
-        <ul>
+    <div className="work-shell">
+      <Sidebar setIsAuthenticated={setIsAuthenticated} />
+      <main className="work-page">
+        <section className="work-hero work-hero--manage">
+          <div>
+            <span className="work-kicker"><FiCheckSquare /> Sub-User Voting Management</span>
+            <h1>Manage assigned voting events.</h1>
+            <p>Review voting sessions, edit allowed events, upload candidate data, and open results from one focused view.</p>
+          </div>
           {role === 'main' && (
-            <>
-              <li>
-                <button onClick={() => navigate('/dashboard')}>
-                  <FaTachometerAlt size={20} />
-                  {!isSidebarMinimized && 'Dashboard'}
-                </button>
-              </li>
-              <li>
-                <button onClick={() => navigate('/manage')}>
-                  <FaCogs size={20} />
-                  {!isSidebarMinimized && 'Manage Auctions'}
-                </button>
-              </li>
-            </>
-          )}
-          <li>
-            <button onClick={() => navigate('/bids')}>
-              <FaGavel size={20} />
-              {!isSidebarMinimized && 'Bids'}
+            <button className="work-button work-button--light" onClick={handleCreateEvent}>
+              <FiPlus /> Create Event
             </button>
-          </li>
-        </ul>
-      </div>
+          )}
+        </section>
 
-      <div className='content'>
-        <div className='navbar'>
-          <h1>A M</h1>
-          <nav>
-            <ul>
-              <li className='profile'>
-                <button className='profile-btn' onClick={toggleDropdown}>
-                  <FaUserCircle size={30} />
+        {error && <div className="work-empty work-empty--error">{error}</div>}
+
+        <section className="work-stats-grid">
+          <div className="work-stat-card"><FiCalendar /><span>Events</span><strong>{activeEvents.length}</strong></div>
+          <div className="work-stat-card"><FiFileText /><span>Excel Rows</span><strong>{fileData.length}</strong></div>
+          <div className="work-stat-card"><FiCheckSquare /><span>Selected</span><strong>{checkedRows.length}</strong></div>
+        </section>
+
+        <section className="work-manage-grid">
+          <div className="work-panel">
+            <div className="work-panel__header work-panel__header--row">
+              <div>
+                <span className="work-kicker">Assigned</span>
+                <h2>All Voting Events</h2>
+              </div>
+              {role === 'main' && (
+                <button className="work-button work-button--primary" onClick={handleCreateEvent}>
+                  <FiPlus /> Create Event
                 </button>
-                {isDropdownOpen && (
-                  <div className='dropdown'>
-                    <ul>
-                      <li><button onClick={handleProfile}>Profile</button></li>
-                      <li><button onClick={handleSettings}>Settings</button></li>
-                      <li><button onClick={handleLogout}>Log Out</button></li>
-                    </ul>
-                  </div>
-                )}
-              </li>
-            </ul>
-          </nav>
-        </div>
-
-        <div className='main-content'>
-          <h2>Manage</h2>
-          {error && <p className='error-message'>{error}</p>}
-          <div className="sections-container">
-            <div className="current-section">
-              <h3>All Events</h3>
-              {loading ? (
-                <p>Loading events...</p>
-              ) : error ? (
-                <p>{error}</p>
-              ) : activeEvents.length === 0 ? (
-                <p>No current events, auctions, or items.</p>
-              ) : (
-                activeEvents.map((event) => (
-                  <div key={event.id} className="current-event">
-                    <h4>{event.name}</h4>
-                    <p>{event.description}</p>
-                    <p>Date: {event.date}</p>
-                    <p>Start: {event.startTime} - Stop: {event.stopTime}</p>
-                    <a href={event.link} target="_blank" rel="noopener noreferrer">{event.link}</a>
-                    <div className="event-actions" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                      {role === 'main' && (
-                        <>
-                          <button
-                            className="delete-btn"
-                            onClick={() => handleDeleteEvent(event.id)}
-                            title="Delete Event"
-                            style={{
-                              background: '#ff4d4d',
-                              color: 'white',
-                              padding: '5px 10px',
-                              border: 'none',
-                              borderRadius: '5px',
-                            }}
-                          >
-                            Delete
-                          </button>
-                          <button
-                            onClick={() => handleEditEvent(event.id)}
-                            style={{
-                              background: '#4CAF50',
-                              color: 'white',
-                              padding: '5px 10px',
-                              border: 'none',
-                              borderRadius: '5px',
-                            }}
-                          >
-                            Edit
-                          </button>
-                        </>
-                      )}
-                      <button
-                        onClick={() => handleViewResults(event.id)}
-                        style={{
-                          background: '#2196F3',
-                          color: 'white',
-                          padding: '5px 10px',
-                          border: 'none',
-                          borderRadius: '5px',
-                        }}
-                      >
-                        Results
-                      </button>
-                    </div>
-                  </div>
-                ))
               )}
             </div>
 
-            {role === 'main' && (
-              <div className="create-section">
-                <h3>Create</h3>
-                <button onClick={handleCreateEvent}>Create Event</button>
-
-                {showEventForm && (
-                  <div className="event-form-container">
-                    <h3>{editingEventId ? 'Edit Event' : 'Create Event'}</h3>
-                    <form onSubmit={handleEventFormSubmit}>
-                      <label htmlFor="eventDate">Event Date:</label>
-                      <input
-                        type="date"
-                        id="eventDate"
-                        value={eventDate}
-                        onChange={(e) => setEventDate(e.target.value)}
-                        required
-                      />
-
-                      <label htmlFor="startTime">Start Time:</label>
-                      <input
-                        type="time"
-                        id="startTime"
-                        value={startTime}
-                        onChange={(e) => setStartTime(e.target.value)}
-                        required
-                      />
-
-                      <label htmlFor="stopTime">Stop Time:</label>
-                      <input
-                        type="time"
-                        id="stopTime"
-                        value={stopTime}
-                        onChange={(e) => setStopTime(e.target.value)}
-                        required
-                      />
-
-                      <label htmlFor="eventName">Event Name:</label>
-                      <input
-                        type="text"
-                        id="eventName"
-                        value={eventName}
-                        onChange={(e) => setEventName(e.target.value)}
-                        required
-                      />
-
-                      <label htmlFor="eventDescription">Description:</label>
-                      <textarea
-                        id="eventDescription"
-                        value={eventDescription}
-                        onChange={(e) => setEventDescription(e.target.value)}
-                        required
-                      />
-
-                      <label htmlFor="fileUpload">Upload Excel File:</label>
-                      <input
-                        type="file"
-                        id="fileUpload"
-                        accept=".xlsx"
-                        onChange={handleFileUpload}
-                        style={{ marginTop: '10px' }}
-                      />
-                      <p>File Uploaded: {fileName || 'AllDetailsFile.xlsx'}</p>
-                      <a href="../file/AllDetailsFile.xlsx" target="_blank" rel="noopener noreferrer">
-                        Download Sample File
-                      </a>
-
-                      {fileData.length > 0 && (
-                        <div>
-                          <h4>Selected Candidates:</h4>
-                          <table>
-                            <thead>
-                              <tr>
-                                {Object.keys(fileData[0]).map((key) => (
-                                  <th key={key}>{key}</th>
-                                ))}
-                                <th>Image</th>
-                                <th>Check</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {fileData.map((data, index) => (
-                                <tr key={index}>
-                                  {Object.values(data).map((value, i) => (
-                                    <td key={i}>{value}</td>
-                                  ))}
-                                  <td>
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      onChange={(e) => handleImageUpload(index, e)}
-                                      style={{ margin: '5px 0' }}
-                                    />
-                                    {candidateImages[index] && (
-                                      <div>
-                                        <img
-                                          src={candidateImages[index].dataUrl}
-                                          alt={`Candidate ${index}`}
-                                          style={{ maxWidth: '100px', margin: '5px 0' }}
-                                        />
-                                        <button
-                                          onClick={() => handleClearImage(index)}
-                                          style={{
-                                            background: '#ff4d4d',
-                                            color: 'white',
-                                            padding: '5px 10px',
-                                            border: 'none',
-                                            borderRadius: '5px',
-                                          }}
-                                        >
-                                          Clear Image
-                                        </button>
-                                      </div>
-                                    )}
-                                  </td>
-                                  <td>
-                                    <input
-                                      type="checkbox"
-                                      checked={checkedRows.includes(index)}
-                                      onChange={() => handleCheckboxChange(index)}
-                                    />
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+            <div className="work-card-list">
+              {loading ? (
+                <div className="work-empty">Loading events...</div>
+              ) : activeEvents.length === 0 ? (
+                <div className="work-empty">No voting events available.</div>
+              ) : (
+                activeEvents.map((event) => (
+                  <article key={event.id} className="work-event-card">
+                    <span className="work-pill"><FiCalendar /> {event.date}</span>
+                    <h3>{event.name}</h3>
+                    <p>{event.description}</p>
+                    <div className="work-event-meta">
+                      <span>Start {event.startTime}</span>
+                      <span>Stop {event.stopTime}</span>
+                    </div>
+                    <a className="work-link" href={event.link} target="_blank" rel="noopener noreferrer">
+                      <FiExternalLink /> Open voting link
+                    </a>
+                    <div className="work-actions">
+                      {role === 'main' && (
+                        <>
+                          <button className="work-button work-button--danger" onClick={() => handleDeleteEvent(event.id)}><FiTrash2 /> Delete</button>
+                          <button className="work-button work-button--accent" onClick={() => handleEditEvent(event.id)}><FiEdit3 /> Edit</button>
+                        </>
                       )}
-
-                      <button type="submit">{editingEventId ? 'Update Event' : 'Create Event'}</button>
-                    </form>
-
-                    {eventCreated && (
-                      <div className="event-success">
-                        <h4>Event {editingEventId ? 'Updated' : 'Created'} Successfully</h4>
-                        <p>
-                          Your event link:{' '}
-                          <a href={generatedLink} target="_blank" rel="noopener noreferrer">
-                            {generatedLink}
-                          </a>
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+                      <button className="work-button work-button--primary" onClick={() => handleViewResults(event.id)}><FiTrendingUp /> Results</button>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
           </div>
-        </div>
-      </div>
+
+          {role === 'main' && (
+            <div className="work-panel work-create-panel">
+              <div className="work-panel__header">
+                <span className="work-kicker">Builder</span>
+                <h2>{editingEventId ? 'Edit Event' : 'Create Event'}</h2>
+                <p>Configure event timing, upload Excel data, and select candidates for voting.</p>
+              </div>
+
+              {!showEventForm ? (
+                <div className="work-empty work-empty--action">
+                  <FiPlus />
+                  <strong>No builder open</strong>
+                  <span>Create or edit an event to open the builder.</span>
+                  <button className="work-button work-button--primary" onClick={handleCreateEvent}>Create Event</button>
+                </div>
+              ) : (
+                <form onSubmit={handleEventFormSubmit} className="work-form">
+                  <div className="work-form-grid">
+                    <label className="work-field"><span>Event Date</span><input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required /></label>
+                    <label className="work-field"><span>Start Time</span><input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required /></label>
+                    <label className="work-field"><span>Stop Time</span><input type="time" value={stopTime} onChange={(e) => setStopTime(e.target.value)} required /></label>
+                    <label className="work-field"><span>Event Name</span><input type="text" value={eventName} onChange={(e) => setEventName(e.target.value)} required /></label>
+                    <label className="work-field work-field--full"><span>Description</span><textarea value={eventDescription} onChange={(e) => setEventDescription(e.target.value)} required /></label>
+                  </div>
+
+                  <div className="work-upload-box">
+                    <div>
+                      <span><FiUploadCloud /> Upload Excel File</span>
+                      <p>File uploaded: {fileName || 'No file selected'}</p>
+                    </div>
+                    <input type="file" accept=".xlsx" onChange={handleFileUpload} />
+                    <a className="work-link" href="../file/AllDetailsFile.xlsx" target="_blank" rel="noopener noreferrer"><FiDownload /> Download sample file</a>
+                  </div>
+
+                  {fileData.length > 0 && (
+                    <div className="work-table-wrap work-table-wrap--builder">
+                      <table className="work-table">
+                        <thead>
+                          <tr>
+                            {Object.keys(fileData[0]).map((key) => <th key={key}>{key}</th>)}
+                            <th>Image</th>
+                            <th>Select</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {fileData.map((data, index) => (
+                            <tr key={index}>
+                              {Object.values(data).map((value, i) => <td key={i}>{value}</td>)}
+                              <td>
+                                <div className="work-image-upload-cell">
+                                  <input type="file" accept="image/*" onChange={(e) => handleImageUpload(index, e)} />
+                                  {candidateImages[index] && (
+                                    <div className="work-image-preview">
+                                      <img src={candidateImages[index].dataUrl} alt={`Candidate ${index}`} />
+                                      <button type="button" className="work-button work-button--danger work-button--small" onClick={() => handleClearImage(index)}><FiImage /> Clear</button>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              <td><input type="checkbox" checked={checkedRows.includes(index)} onChange={() => handleCheckboxChange(index)} /></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <button type="submit" className="work-button work-button--primary work-button--full">
+                    {editingEventId ? 'Update Event' : 'Create Event'}
+                  </button>
+                </form>
+              )}
+
+              {eventCreated && (
+                <div className="work-success-box">
+                  <h3>Event {editingEventId ? 'Updated' : 'Created'} Successfully</h3>
+                  <a className="work-link" href={generatedLink} target="_blank" rel="noopener noreferrer"><FiExternalLink /> {generatedLink}</a>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      </main>
     </div>
   );
+
 };
 
 export default Manage;
