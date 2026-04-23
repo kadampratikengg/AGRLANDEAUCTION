@@ -407,6 +407,25 @@
   font-weight: 700;
 }
 
+.profile-logo-tools {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.profile-logo-preview {
+  width: 96px;
+  height: 96px;
+  border-radius: 18px;
+  object-fit: cover;
+  border: 1px solid var(--profile-line);
+}
+
+.profile-icon-button--danger {
+  background: rgba(189, 46, 46, 0.12);
+  color: #a12828;
+}
+
 .profile-side-stack {
   display: grid;
   gap: 18px;

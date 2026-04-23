@@ -87,6 +87,56 @@ const Settings = ({ setIsAuthenticated }) => {
     setSubUserPermissions({ voting: true, manage: true });
   };
 
+  const handleClearSubUserImage = async () => {
+    const currentImage = subUserProfilePic?.key || subUserProfilePic?.uuid || '';
+    if (!currentImage) {
+      setSubUserProfilePic(null);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No authentication token found');
+
+      if (editingUserId) {
+        const permissions = [];
+        if (subUserPermissions.voting) permissions.push('/voting/:eventId');
+        if (subUserPermissions.manage) permissions.push('/manage');
+
+        const response = await fetch(`${apiUrl}/api/sub-users/${editingUserId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            fullName: subUserFullName,
+            email: subUserEmail,
+            role: subUserRole,
+            profilePic: '',
+            permissions,
+          }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.message || 'Failed to remove image');
+        }
+
+        setSubUsers((prev) =>
+          prev.map((user) =>
+            user._id === editingUserId ? { ...user, profilePic: '' } : user,
+          ),
+        );
+      }
+
+      setSubUserProfilePic(null);
+      toast.success('Profile image removed');
+    } catch (err) {
+      toast.error(err.message || 'Failed to remove image');
+    }
+  };
+
   const handleCreateSubUser = async (e) => {
     e.preventDefault();
 
@@ -176,11 +226,9 @@ const Settings = ({ setIsAuthenticated }) => {
     try {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('No authentication token found');
-      let profilePicUrl =
-        subUsers.find((u) => u._id === editingUserId)?.profilePic || '';
+      let profilePicUrl = '';
       if (subUserProfilePic) {
-        profilePicUrl =
-          subUserProfilePic.key || subUserProfilePic.uuid || profilePicUrl;
+        profilePicUrl = subUserProfilePic.key || subUserProfilePic.uuid || '';
       }
 
       const permissions = [];
@@ -533,16 +581,28 @@ const Settings = ({ setIsAuthenticated }) => {
                       }}
                     />
                     {subUserProfilePic && subUserProfilePic.url && (
-                      <img
-                        src={subUserProfilePic.url}
-                        alt='preview'
-                        style={{
-                          width: 48,
-                          height: 48,
-                          objectFit: 'cover',
-                          borderRadius: 4,
-                        }}
-                      />
+                      <div>
+                        <img
+                          src={subUserProfilePic.url}
+                          alt='preview'
+                          style={{
+                            width: 48,
+                            height: 48,
+                            objectFit: 'cover',
+                            borderRadius: 4,
+                            display: 'block',
+                            marginTop: 8,
+                            marginBottom: 8,
+                          }}
+                        />
+                        <button
+                          type='button'
+                          className='work-button work-button--danger work-button--small'
+                          onClick={handleClearSubUserImage}
+                        >
+                          <FiTrash2 /> Remove Image
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>

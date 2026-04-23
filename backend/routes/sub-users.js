@@ -1,9 +1,26 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { authenticateToken } = require('../middleware/auth');
 const User = require('../models/User');
 const SubUser = require('../models/SubUser');
 const router = express.Router();
+
+const extractKey = (val) => {
+  if (val && val.startsWith('http')) {
+    try {
+      const parsed = new URL(val);
+      const proxyPrefix = '/api/upload/s3/object/';
+      if (parsed.pathname.startsWith(proxyPrefix)) {
+        return decodeURIComponent(parsed.pathname.slice(proxyPrefix.length));
+      }
+      return parsed.pathname.replace(/^\/+/, '');
+    } catch (error) {
+      return val;
+    }
+  }
+  return val;
+};
 
 // Get all sub-users for the authenticated user
 router.get('/api/sub-users', authenticateToken, async (req, res) => {
@@ -99,11 +116,43 @@ router.put(
           .json({ message: 'Sub-user not found or not authorized' });
       }
 
+      const previousProfilePic = subUser.profilePic || '';
       if (fullName) subUser.fullName = fullName;
       if (email) subUser.email = email;
       if (role) subUser.role = role;
-      if (profilePic) subUser.profilePic = profilePic;
+      if (profilePic !== undefined) subUser.profilePic = profilePic;
       if (permissions) subUser.permissions = permissions;
+
+      if (
+        profilePic !== undefined &&
+        previousProfilePic &&
+        previousProfilePic !== subUser.profilePic &&
+        process.env.AWS_BUCKET_NAME
+      ) {
+        const s3 = new S3Client({
+          region: process.env.AWS_REGION,
+          credentials: {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+          },
+        });
+
+        try {
+          const key = extractKey(previousProfilePic);
+          await s3.send(
+            new DeleteObjectCommand({
+              Bucket: process.env.AWS_BUCKET_NAME,
+              Key: key,
+            }),
+          );
+          console.log(`Deleted previous sub-user image from S3: ${key}`);
+        } catch (err) {
+          console.error(
+            'Error deleting previous sub-user image from S3:',
+            err.message || err,
+          );
+        }
+      }
 
       await subUser.save();
 
@@ -135,6 +184,32 @@ router.delete(
         return res
           .status(404)
           .json({ message: 'Sub-user not found or not authorized' });
+      }
+
+      if (subUser.profilePic && process.env.AWS_BUCKET_NAME) {
+        const s3 = new S3Client({
+          region: process.env.AWS_REGION,
+          credentials: {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+          },
+        });
+
+        try {
+          const key = extractKey(subUser.profilePic);
+          await s3.send(
+            new DeleteObjectCommand({
+              Bucket: process.env.AWS_BUCKET_NAME,
+              Key: key,
+            }),
+          );
+          console.log(`Deleted sub-user image from S3: ${key}`);
+        } catch (err) {
+          console.error(
+            'Error deleting sub-user image from S3:',
+            err.message || err,
+          );
+        }
       }
 
       await SubUser.deleteOne({ _id: subUserId });

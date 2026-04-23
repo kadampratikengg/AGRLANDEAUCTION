@@ -16,8 +16,16 @@ router.delete('/delete/:keyOrUrl', authenticateToken, async (req, res) => {
   const extractKey = (val) => {
     if (!val) return val;
     if (val.startsWith('http')) {
-      const parts = val.split('/');
-      return parts.slice(3).join('/');
+      try {
+        const parsed = new URL(val);
+        const proxyPrefix = '/api/upload/s3/object/';
+        if (parsed.pathname.startsWith(proxyPrefix)) {
+          return decodeURIComponent(parsed.pathname.slice(proxyPrefix.length));
+        }
+        return parsed.pathname.replace(/^\/+/, '');
+      } catch (error) {
+        return val;
+      }
     }
     return val;
   };

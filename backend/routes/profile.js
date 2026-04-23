@@ -1,4 +1,5 @@
 const express = require('express');
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { authenticateToken } = require('../middleware/auth');
 const User = require('../models/User');
 const { activatePendingFreeCredits } = require('../utils/subscription');
@@ -13,6 +14,15 @@ const generateUniqueUsername = async (baseUsername) => {
     counter++;
   }
   return username;
+};
+
+const extractS3Key = (val) => {
+  if (!val) return val;
+  if (val.startsWith('http')) {
+    const parts = val.split('/');
+    return parts.slice(3).join('/');
+  }
+  return val;
 };
 
 // Get user profile
@@ -119,6 +129,7 @@ router.put('/api/users', authenticateToken, async (req, res) => {
     }
 
     // Update only provided fields
+    const previousLogo = user.logo || '';
     user.name = name !== undefined ? name : user.name;
     user.organization =
       organization !== undefined ? organization : user.organization;
@@ -131,6 +142,37 @@ router.put('/api/users', authenticateToken, async (req, res) => {
     user.district = district !== undefined ? district : user.district;
     user.pincode = pincode !== undefined ? pincode : user.pincode;
     user.gstNumber = gstNumber !== undefined ? gstNumber : user.gstNumber;
+
+    if (
+      logo !== undefined &&
+      previousLogo &&
+      previousLogo !== user.logo &&
+      process.env.AWS_BUCKET_NAME
+    ) {
+      const s3 = new S3Client({
+        region: process.env.AWS_REGION,
+        credentials: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        },
+      });
+
+      try {
+        const key = extractS3Key(previousLogo);
+        await s3.send(
+          new DeleteObjectCommand({
+            Bucket: process.env.AWS_BUCKET_NAME,
+            Key: key,
+          }),
+        );
+        console.log(`Deleted previous organization logo from S3: ${key}`);
+      } catch (err) {
+        console.error(
+          'Error deleting previous organization logo from S3:',
+          err.message || err,
+        );
+      }
+    }
 
     await user.save();
 

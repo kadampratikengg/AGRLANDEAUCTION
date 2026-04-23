@@ -45,6 +45,7 @@ const Profile = ({ setIsAuthenticated }) => {
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [updatingLogo, setUpdatingLogo] = useState(false);
   const apiUrl = process.env.REACT_APP_API_URL;
   const s3BucketUrl = process.env.REACT_APP_S3_BUCKET_URL;
 
@@ -245,6 +246,56 @@ Generated on: ${formatDate(new Date())}
       toast.error(error.response?.data?.message || 'Error updating profile');
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  const persistLogo = async (nextLogo, nextLogoPreview = '') => {
+    const response = await axios.put(
+      `${apiUrl}/api/users`,
+      { logo: nextLogo },
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+
+    setUserData((prev) => ({
+      ...prev,
+      ...response.data,
+      logoPreview: nextLogoPreview,
+    }));
+  };
+
+  const handleLogoDelete = async () => {
+    const currentLogo = userData.logo;
+    if (!currentLogo || updatingLogo) return;
+
+    try {
+      setUpdatingLogo(true);
+      const token = localStorage.getItem('token');
+      await fetch(
+        `${apiUrl}/api/uploadcare/delete/${encodeURIComponent(currentLogo)}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      ).then(async (response) => {
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || 'Failed to delete logo');
+        }
+      });
+
+      await persistLogo('', '');
+      toast.success('Logo deleted successfully');
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete logo');
+    } finally {
+      setUpdatingLogo(false);
     }
   };
 
@@ -494,33 +545,47 @@ Generated on: ${formatDate(new Date())}
                   <input
                     type='file'
                     accept='image/*'
+                    disabled={updatingLogo}
                     onChange={async (e) => {
                       const file = e.target.files && e.target.files[0];
                       if (!file) return;
                       try {
+                        setUpdatingLogo(true);
                         const token = localStorage.getItem('token');
                         const result = await uploadFileToS3(
                           file,
                           token,
                           'organization-images',
                         );
-                        // store key and preview url
-                        setUserData((prev) => ({
-                          ...prev,
-                          logo: result.key,
-                          logoPreview: result.proxyUrl
-                            ? `${apiUrl}${result.proxyUrl}`
-                            : result.url,
-                        }));
+                        const logoPreview = result.proxyUrl
+                          ? `${apiUrl}${result.proxyUrl}`
+                          : result.url;
+                        await persistLogo(result.key, logoPreview);
                         toast.success('Logo uploaded successfully');
                       } catch (err) {
                         toast.error(err.message || 'Logo upload failed');
+                      } finally {
+                        setUpdatingLogo(false);
                       }
                     }}
                   />
-                  <span className='profile-upload-warning'>
-                    Using S3 uploader
-                  </span>
+                  {organizationLogoUrl && (
+                    <div className='profile-logo-tools'>
+                      <img
+                        src={organizationLogoUrl}
+                        alt='Organization logo preview'
+                        className='profile-logo-preview'
+                      />
+                      <button
+                        type='button'
+                        className='profile-icon-button profile-icon-button--danger'
+                        onClick={handleLogoDelete}
+                        disabled={updatingLogo}
+                      >
+                        {updatingLogo ? 'Working...' : 'Delete Logo'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
