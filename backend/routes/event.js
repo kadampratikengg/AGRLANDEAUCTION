@@ -1,5 +1,6 @@
 const express = require('express');
 const axios = require('axios');
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const multer = require('multer');
 const Event = require('../models/Event');
 const Vote = require('../models/Vote');
@@ -9,6 +10,8 @@ const router = express.Router();
 const upload = multer();
 
 router.use(express.json());
+
+const { roleMiddleware } = require('../middleware/role');
 
 // Fetch all events for authenticated user
 router.get('/events', authenticateToken, async (req, res) => {
@@ -62,11 +65,9 @@ router.post(
     const { eventId, fileData, timestamp } = req.body;
 
     if (!eventId || !fileData || !timestamp) {
-      return res
-        .status(400)
-        .json({
-          message: 'Missing required fields: eventId, fileData, timestamp',
-        });
+      return res.status(400).json({
+        message: 'Missing required fields: eventId, fileData, timestamp',
+      });
     }
 
     try {
@@ -101,7 +102,7 @@ router.post('/verify-id/:eventId', upload.none(), async (req, res) => {
     'ID:',
     req.body.id,
   );
-  const { id } = req.body;
+  const id = String(req.body.id || '').trim();
   const eventId = req.params.eventId;
 
   if (!id) {
@@ -120,17 +121,15 @@ router.post('/verify-id/:eventId', upload.none(), async (req, res) => {
       const values = Object.values(row);
       return (
         values.length >= 2 &&
-        (values[1] === id || String(values[1]) === String(id))
+        String(values[1]).trim() === id
       );
     });
 
     if (!rowData) {
-      return res
-        .status(200)
-        .json({
-          message: 'ID not found in second column of Excel data',
-          verified: false,
-        });
+      return res.status(200).json({
+        message: 'ID not found in second column of Excel data',
+        verified: false,
+      });
     }
 
     const existingVote = await Vote.findOne({ eventId, voterId: id });
@@ -145,210 +144,213 @@ router.post('/verify-id/:eventId', upload.none(), async (req, res) => {
   }
 });
 
-// Submit Vote
-router.post('/vote/:eventId', upload.none(), async (req, res) => {
-  console.log(
-    '📥 Vote submission for event:',
-    req.params.eventId,
-    'Data:',
-    req.body,
-  );
-  const { voterId, candidate } = req.body;
-  const eventId = req.params.eventId;
+// Submit Vote for a public voting session
+router.post(
+  '/vote/:eventId',
+  upload.none(),
+  async (req, res) => {
+    console.log(
+      '📥 Vote submission for event:',
+      req.params.eventId,
+      'Data:',
+      req.body,
+    );
+    const voterId = String(req.body.voterId || '').trim();
+    const candidate = String(req.body.candidate || '').trim();
+    const eventId = req.params.eventId;
 
-  if (!voterId || !candidate) {
-    return res
-      .status(400)
-      .json({ message: 'Voter ID and candidate are required' });
-  }
-
-  try {
-    const existingVote = await Vote.findOne({ eventId, voterId });
-    if (existingVote) {
-      return res.status(400).json({ message: 'This ID has already voted' });
+    if (!voterId || !candidate) {
+      return res
+        .status(400)
+        .json({ message: 'Voter ID and candidate are required' });
     }
 
-    const vote = new Vote({
-      eventId,
-      voterId,
-      candidate,
-      timestamp: new Date().toISOString(),
-    });
+    try {
+      const event = await Event.findOne({ id: eventId });
+      if (!event) {
+        return res.status(404).json({ message: 'Voting event not found' });
+      }
 
-    await vote.save();
-    console.log('✅ Vote saved successfully:', vote);
-    res.status(201).json({ message: 'Vote submitted successfully' });
-  } catch (error) {
-    console.error('❌ Error saving vote:', error);
-    res
-      .status(500)
-      .json({ message: 'Failed to submit vote', error: error.message });
-  }
-});
+      const existingVote = await Vote.findOne({ eventId, voterId });
+      if (existingVote) {
+        return res.status(400).json({ message: 'This ID has already voted' });
+      }
+
+      const vote = new Vote({
+        eventId,
+        voterId,
+        candidate,
+        timestamp: new Date().toISOString(),
+      });
+
+      await vote.save();
+      console.log('Vote saved successfully:', vote);
+      res.status(201).json({ message: 'Vote submitted successfully' });
+    } catch (error) {
+      console.error('Error saving vote:', error);
+      if (error && error.code === 11000) {
+        return res.status(400).json({ message: 'This ID has already voted' });
+      }
+      res
+        .status(500)
+        .json({ message: 'Failed to submit vote', error: error.message });
+    }
+  },
+);
 
 // Get Event
-router.get('/events/:id', authenticateToken, async (req, res) => {
-  console.log(
-    '📥 Event fetch request for ID:',
-    req.params.id,
-    'by user:',
-    req.user.userId,
-  );
+router.get('/events/:id', async (req, res) => {
+  console.log('Event fetch request for ID:', req.params.id);
   try {
-    const event = await Event.findOne({
-      id: req.params.id,
-      userId: req.user.userId,
-    });
+    const event = await Event.findOne({ id: req.params.id });
     if (!event) {
-      return res
-        .status(404)
-        .json({ message: 'Event not found or unauthorized' });
+      return res.status(404).json({ message: 'Event not found' });
     }
     res.status(200).json(event);
   } catch (error) {
-    console.error('❌ Error fetching event:', error);
+    console.error('Error fetching event:', error);
     res
       .status(500)
       .json({ message: 'Failed to fetch event', error: error.message });
   }
 });
 
-// Create Event
-router.post('/events', authenticateToken, upload.none(), async (req, res) => {
-  console.log('📥 Event submission received:', req.body);
-  if (!req.body || Object.keys(req.body).length === 0) {
-    console.error('❌ Empty request body received');
-    return res.status(400).json({ message: 'Request body is empty' });
-  }
-
-  const {
-    id,
-    date,
-    startTime,
-    stopTime,
-    name,
-    description,
-    selectedData,
-    candidateImages,
-    expiry,
-    link,
-    fileData,
-  } = req.body;
-
-  const missingFields = [];
-  if (!id) missingFields.push('id');
-  if (!date) missingFields.push('date');
-  if (!startTime) missingFields.push('startTime');
-  if (!stopTime) missingFields.push('stopTime');
-  if (!name) missingFields.push('name');
-  if (!description) missingFields.push('description');
-  if (!selectedData) missingFields.push('selectedData');
-  if (!expiry) missingFields.push('expiry');
-  if (!link) missingFields.push('link');
-
-  if (missingFields.length > 0) {
-    console.error('❌ Missing fields:', missingFields);
-    return res
-      .status(400)
-      .json({
-        message: `Missing required fields: ${missingFields.join(', ')}`,
-      });
-  }
-
-  try {
-    const user = await User.findById(req.user.userId);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    const availableVotingCredits = user.subscription?.votingCredits || 0;
-    if (!user.subscription?.isValid || availableVotingCredits <= 0) {
-      return res
-        .status(402)
-        .json({
-          message:
-            'No voting credits available. Please buy voting credits to create a new voting event.',
-        });
+// Create Event - only admin can create events
+router.post(
+  '/events',
+  authenticateToken,
+  roleMiddleware('admin'),
+  upload.none(),
+  async (req, res) => {
+    console.log('📥 Event submission received:', req.body);
+    if (!req.body || Object.keys(req.body).length === 0) {
+      console.error('❌ Empty request body received');
+      return res.status(400).json({ message: 'Request body is empty' });
     }
 
-    let parsedSelectedData, parsedCandidateImages, parsedFileData;
-    try {
-      parsedSelectedData = JSON.parse(selectedData);
-      parsedCandidateImages = candidateImages
-        ? JSON.parse(candidateImages)
-        : [];
-      parsedFileData = fileData ? JSON.parse(fileData) : [];
-    } catch (error) {
-      console.error('❌ JSON parsing error:', error);
-      return res
-        .status(400)
-        .json({
-          message:
-            'Invalid JSON format in selectedData, candidateImages, or fileData',
-        });
-    }
-
-    if (!Array.isArray(parsedSelectedData) || parsedSelectedData.length === 0) {
-      console.error('❌ Invalid selectedData:', parsedSelectedData);
-      return res
-        .status(400)
-        .json({ message: 'selectedData must be a non-empty array' });
-    }
-
-    const event = new Event({
+    const {
       id,
-      userId: req.user.userId,
       date,
       startTime,
       stopTime,
       name,
       description,
-      selectedData: parsedSelectedData,
-      fileData: parsedFileData,
-      candidateImages: parsedCandidateImages,
-      expiry: Number(expiry),
+      selectedData,
+      candidateImages,
+      expiry,
       link,
-    });
+      fileData,
+    } = req.body;
 
-    await event.validate();
-    await event.save();
-    user.subscription.votingCredits = availableVotingCredits - 1;
-    user.subscription.usedVotingCredits =
-      (user.subscription.usedVotingCredits || 0) + 1;
-    user.subscription.isValid = user.subscription.votingCredits > 0;
+    const missingFields = [];
+    if (!id) missingFields.push('id');
+    if (!date) missingFields.push('date');
+    if (!startTime) missingFields.push('startTime');
+    if (!stopTime) missingFields.push('stopTime');
+    if (!name) missingFields.push('name');
+    if (!description) missingFields.push('description');
+    if (!selectedData) missingFields.push('selectedData');
+    if (!expiry) missingFields.push('expiry');
+    if (!link) missingFields.push('link');
+
+    if (missingFields.length > 0) {
+      console.error('❌ Missing fields:', missingFields);
+      return res.status(400).json({
+        message: `Missing required fields: ${missingFields.join(', ')}`,
+      });
+    }
+
     try {
-      await user.save();
-    } catch (saveError) {
-      console.error(
-        '❌ Failed to deduct voting credit after creating event, rolling back event:',
-        saveError,
-      );
-      await Event.deleteOne({ _id: event._id });
-      return res
-        .status(500)
-        .json({
+      const user = await User.findById(req.user.userId);
+      if (!user) return res.status(404).json({ message: 'User not found' });
+
+      const availableVotingCredits = user.subscription?.votingCredits || 0;
+      if (!user.subscription?.isValid || availableVotingCredits <= 0) {
+        return res.status(402).json({
+          message:
+            'No voting credits available. Please buy voting credits to create a new voting event.',
+        });
+      }
+
+      let parsedSelectedData, parsedCandidateImages, parsedFileData;
+      try {
+        parsedSelectedData = JSON.parse(selectedData);
+        parsedCandidateImages = candidateImages
+          ? JSON.parse(candidateImages)
+          : [];
+        parsedFileData = fileData ? JSON.parse(fileData) : [];
+      } catch (error) {
+        console.error('❌ JSON parsing error:', error);
+        return res.status(400).json({
+          message:
+            'Invalid JSON format in selectedData, candidateImages, or fileData',
+        });
+      }
+
+      if (
+        !Array.isArray(parsedSelectedData) ||
+        parsedSelectedData.length === 0
+      ) {
+        console.error('❌ Invalid selectedData:', parsedSelectedData);
+        return res
+          .status(400)
+          .json({ message: 'selectedData must be a non-empty array' });
+      }
+
+      const event = new Event({
+        id,
+        userId: req.user.userId,
+        date,
+        startTime,
+        stopTime,
+        name,
+        description,
+        selectedData: parsedSelectedData,
+        fileData: parsedFileData,
+        candidateImages: parsedCandidateImages,
+        expiry: Number(expiry),
+        link,
+      });
+
+      await event.validate();
+      await event.save();
+      user.subscription.votingCredits = availableVotingCredits - 1;
+      user.subscription.usedVotingCredits =
+        (user.subscription.usedVotingCredits || 0) + 1;
+      user.subscription.isValid = user.subscription.votingCredits > 0;
+      try {
+        await user.save();
+      } catch (saveError) {
+        console.error(
+          '❌ Failed to deduct voting credit after creating event, rolling back event:',
+          saveError,
+        );
+        await Event.deleteOne({ _id: event._id });
+        return res.status(500).json({
           message: 'Failed to deduct voting credit after event creation',
           error: saveError.message,
         });
-    }
-    console.log('✅ Event saved successfully:', event);
-    res
-      .status(201)
-      .json({
+      }
+      console.log('✅ Event saved successfully:', event);
+      res.status(201).json({
         message: 'Event created successfully',
         link: event.link,
         remainingVotingCredits: user.subscription.votingCredits,
       });
-  } catch (error) {
-    console.error('❌ Error saving event:', error);
-    res
-      .status(500)
-      .json({ message: 'Failed to create event', error: error.message });
-  }
-});
+    } catch (error) {
+      console.error('❌ Error saving event:', error);
+      res
+        .status(500)
+        .json({ message: 'Failed to create event', error: error.message });
+    }
+  },
+);
 
-// Update Event
+// Update Event - only admin
 router.put(
   '/events/:id',
   authenticateToken,
+  roleMiddleware('admin'),
   upload.none(),
   async (req, res) => {
     console.log(
@@ -387,11 +389,9 @@ router.put(
 
     if (missingFields.length > 0) {
       console.error('❌ Missing fields:', missingFields);
-      return res
-        .status(400)
-        .json({
-          message: `Missing required fields: ${missingFields.join(', ')}`,
-        });
+      return res.status(400).json({
+        message: `Missing required fields: ${missingFields.join(', ')}`,
+      });
     }
 
     try {
@@ -404,12 +404,10 @@ router.put(
         parsedFileData = fileData ? JSON.parse(fileData) : [];
       } catch (error) {
         console.error('❌ JSON parsing error:', error);
-        return res
-          .status(400)
-          .json({
-            message:
-              'Invalid JSON format in selectedData, candidateImages, or fileData',
-          });
+        return res.status(400).json({
+          message:
+            'Invalid JSON format in selectedData, candidateImages, or fileData',
+        });
       }
 
       if (
@@ -436,37 +434,67 @@ router.put(
           .json({ message: 'Event not found or unauthorized' });
       }
 
-      // Identify images to delete
-      const existingImageUuids = new Set(
-        existingEvent.candidateImages.map((img) => img.uuid).filter(Boolean),
+      // Identify images to delete (supports S3 keys or legacy UUID fields)
+      const existingImageKeys = new Set(
+        existingEvent.candidateImages
+          .map((img) => img.key || img.s3Key || img.url || img.uuid)
+          .filter(Boolean),
       );
-      const newImageUuids = new Set(
-        parsedCandidateImages.map((img) => img.uuid).filter(Boolean),
+      const newImageKeys = new Set(
+        parsedCandidateImages
+          .map((img) => img.key || img.s3Key || img.url || img.uuid)
+          .filter(Boolean),
       );
-      const imagesToDelete = [...existingImageUuids].filter(
-        (uuid) => !newImageUuids.has(uuid),
+      const imagesToDelete = [...existingImageKeys].filter(
+        (k) => !newImageKeys.has(k),
       );
 
-      // Delete images from Uploadcare
-      if (imagesToDelete.length > 0) {
+      // Delete images from S3 when configured
+      if (imagesToDelete.length > 0 && process.env.AWS_BUCKET_NAME) {
+        const s3 = new S3Client({
+          region: process.env.AWS_REGION,
+          credentials: {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+          },
+        });
+
+        const extractKey = (val) => {
+          // If URL, try to extract key after bucket domain
+          try {
+            if (val.startsWith('http')) {
+              const parts = val.split('/');
+              return parts.slice(3).join('/');
+            }
+            return val;
+          } catch (e) {
+            return val;
+          }
+        };
+
         try {
           await Promise.all(
-            imagesToDelete.map(async (uuid) => {
-              await axios.delete(`https://api.uploadcare.com/files/${uuid}/`, {
-                headers: {
-                  Authorization: `Uploadcare.Simple ${process.env.UPLOADCARE_PUBLIC_KEY}:${process.env.UPLOADCARE_SECRET_KEY}`,
-                  Accept: 'application/vnd.uploadcare-v0.7+json',
-                },
-              });
-              console.log(`🗑️ Deleted image from Uploadcare: ${uuid}`);
+            imagesToDelete.map(async (val) => {
+              const key = extractKey(val);
+              await s3.send(
+                new DeleteObjectCommand({
+                  Bucket: process.env.AWS_BUCKET_NAME,
+                  Key: key,
+                }),
+              );
+              console.log(`🗑️ Deleted image from S3: ${key}`);
             }),
           );
         } catch (err) {
           console.error(
-            '❌ Error deleting images from Uploadcare:',
-            err.response?.data || err.message,
+            '❌ Error deleting images from S3:',
+            err.message || err,
           );
         }
+      } else if (imagesToDelete.length > 0) {
+        console.warn(
+          '⚠️ AWS_BUCKET_NAME not configured — skipping image deletions',
+        );
       }
 
       const event = await Event.findOneAndUpdate(
@@ -504,96 +532,120 @@ router.put(
   },
 );
 
-// Delete Event
-router.delete('/events/:id', authenticateToken, async (req, res) => {
-  console.log(
-    '📥 Event deletion request for ID:',
-    req.params.id,
-    'by user:',
-    req.user.userId,
-  );
-  try {
-    const event = await Event.findOne({
-      id: req.params.id,
-      userId: req.user.userId,
-    });
-    if (!event) {
-      console.error(
-        '❌ Event not found or unauthorized for ID:',
-        req.params.id,
-      );
-      return res
-        .status(404)
-        .json({ message: 'Event not found or unauthorized' });
-    }
+// Delete Event - only admin
+router.delete(
+  '/events/:id',
+  authenticateToken,
+  roleMiddleware('admin'),
+  async (req, res) => {
+    console.log(
+      '📥 Event deletion request for ID:',
+      req.params.id,
+      'by user:',
+      req.user.userId,
+    );
+    try {
+      const event = await Event.findOne({
+        id: req.params.id,
+        userId: req.user.userId,
+      });
+      if (!event) {
+        console.error(
+          '❌ Event not found or unauthorized for ID:',
+          req.params.id,
+        );
+        return res
+          .status(404)
+          .json({ message: 'Event not found or unauthorized' });
+      }
 
-    const eventStartTime = new Date(`${event.date}T${event.startTime}`);
-    const currentTime = new Date();
-    const shouldRestoreCredit = currentTime < eventStartTime;
-    let restoredCredit = false;
+      const eventStartTime = new Date(`${event.date}T${event.startTime}`);
+      const currentTime = new Date();
+      const shouldRestoreCredit = currentTime < eventStartTime;
+      let restoredCredit = false;
 
-    // Delete images from Uploadcare
-    if (event.candidateImages && event.candidateImages.length > 0) {
-      const uuids = event.candidateImages
-        .map((img) => img.uuid)
-        .filter(Boolean);
-      if (uuids.length > 0) {
-        try {
-          await Promise.all(
-            uuids.map(async (uuid) => {
-              await axios.delete(`https://api.uploadcare.com/files/${uuid}/`, {
-                headers: {
-                  Authorization: `Uploadcare.Simple ${process.env.UPLOADCARE_PUBLIC_KEY}:${process.env.UPLOADCARE_SECRET_KEY}`,
-                  Accept: 'application/vnd.uploadcare-v0.7+json',
-                },
-              });
-              console.log(`🗑️ Deleted image from Uploadcare: ${uuid}`);
-            }),
-          );
-        } catch (err) {
-          console.error(
-            '❌ Error deleting images from Uploadcare:',
-            err.response?.data || err.message,
+      // Delete images from S3 when configured
+      if (event.candidateImages && event.candidateImages.length > 0) {
+        const values = event.candidateImages
+          .map((img) => img.key || img.s3Key || img.url || img.uuid)
+          .filter(Boolean);
+        if (values.length > 0 && process.env.AWS_BUCKET_NAME) {
+          const s3 = new S3Client({
+            region: process.env.AWS_REGION,
+            credentials: {
+              accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+              secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+            },
+          });
+
+          const extractKey = (val) => {
+            if (val && val.startsWith('http')) {
+              const parts = val.split('/');
+              return parts.slice(3).join('/');
+            }
+            return val;
+          };
+
+          try {
+            await Promise.all(
+              values.map(async (val) => {
+                const key = extractKey(val);
+                await s3.send(
+                  new DeleteObjectCommand({
+                    Bucket: process.env.AWS_BUCKET_NAME,
+                    Key: key,
+                  }),
+                );
+                console.log(`🗑️ Deleted image from S3: ${key}`);
+              }),
+            );
+          } catch (err) {
+            console.error(
+              '❌ Error deleting images from S3:',
+              err.message || err,
+            );
+          }
+        } else if (values.length > 0) {
+          console.warn(
+            '⚠️ AWS_BUCKET_NAME not configured — skipping image deletions',
           );
         }
       }
-    }
 
-    await Event.findOneAndDelete({
-      id: req.params.id,
-      userId: req.user.userId,
-    });
-    await Vote.deleteMany({ eventId: req.params.id });
-    console.log(`🗑️ Deleted votes for event: ${req.params.id}`);
+      await Event.findOneAndDelete({
+        id: req.params.id,
+        userId: req.user.userId,
+      });
+      await Vote.deleteMany({ eventId: req.params.id });
+      console.log(`🗑️ Deleted votes for event: ${req.params.id}`);
 
-    if (shouldRestoreCredit) {
-      const user = await User.findById(req.user.userId);
-      if (user && user.subscription) {
-        user.subscription.votingCredits =
-          (user.subscription.votingCredits || 0) + 1;
-        user.subscription.usedVotingCredits = Math.max(
-          0,
-          (user.subscription.usedVotingCredits || 0) - 1,
-        );
-        user.subscription.isValid = user.subscription.votingCredits > 0;
-        await user.save();
-        restoredCredit = true;
+      if (shouldRestoreCredit) {
+        const user = await User.findById(req.user.userId);
+        if (user && user.subscription) {
+          user.subscription.votingCredits =
+            (user.subscription.votingCredits || 0) + 1;
+          user.subscription.usedVotingCredits = Math.max(
+            0,
+            (user.subscription.usedVotingCredits || 0) - 1,
+          );
+          user.subscription.isValid = user.subscription.votingCredits > 0;
+          await user.save();
+          restoredCredit = true;
+        }
       }
-    }
 
-    console.log('✅ Event and associated data deleted successfully');
-    res
-      .status(200)
-      .json({
+      console.log('✅ Event and associated data deleted successfully');
+      res.status(200).json({
         message: 'Event deleted successfully',
         creditRestored: restoredCredit,
       });
-  } catch (error) {
-    console.error('❌ Error deleting event:', error);
-    res
-      .status(500)
-      .json({ message: 'Failed to delete event', error: error.message });
-  }
-});
+    } catch (error) {
+      console.error('❌ Error deleting event:', error);
+      res
+        .status(500)
+        .json({ message: 'Failed to delete event', error: error.message });
+    }
+  },
+);
 
 module.exports = router;

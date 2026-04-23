@@ -18,8 +18,8 @@ const eventSchema = new mongoose.Schema({
   candidateImages: [
     {
       candidateIndex: Number,
-      uuid: String,
-      cdnUrl: String,
+      key: String, // S3 object key
+      url: String, // public URL for the object
     },
   ],
   expiry: { type: Number, required: true },

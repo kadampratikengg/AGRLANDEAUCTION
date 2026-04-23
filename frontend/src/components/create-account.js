@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { Widget } from '@uploadcare/react-widget';
+// Use native file input and backend S3 upload endpoint instead of Uploadcare
 import { toast, ToastContainer } from 'react-toastify';
 import {
   FiArrowRight,
@@ -16,6 +16,7 @@ import {
 } from 'react-icons/fi';
 import 'react-toastify/dist/ReactToastify.css';
 import './LoginPage.css';
+import { resolveStoredAssetUrl } from '../utils/imageUrl';
 
 const CreateAccountPage = () => {
   const [email, setEmail] = useState('');
@@ -37,7 +38,25 @@ const CreateAccountPage = () => {
     pincode: '',
     gstNumber: '',
   });
-  const uploadcarePublicKey = process.env.REACT_APP_UPLOADCARE_PUBLIC_KEY;
+  const apiUrl = process.env.REACT_APP_API_URL;
+
+  const uploadFileToS3 = async (file, token, folder) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (folder) formData.append('folder', folder);
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${apiUrl}/api/upload/s3`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Upload failed');
+    }
+    return res.json(); // { url, key }
+  };
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -70,15 +89,6 @@ const CreateAccountPage = () => {
       } catch (error) {
         toast.error('Error fetching pincode data');
       }
-    }
-  };
-
-  const handleLogoUpload = (fileInfo) => {
-    if (fileInfo && fileInfo.uuid && fileInfo.cdnUrl) {
-      setUserData((prev) => ({ ...prev, logo: fileInfo.uuid }));
-      toast.success('Logo uploaded successfully');
-    } else {
-      toast.error('Error uploading logo');
     }
   };
 
@@ -341,27 +351,45 @@ const CreateAccountPage = () => {
               </span>
               <p>Optional square logo. Max 2 MB.</p>
             </div>
-            {uploadcarePublicKey ? (
-              <Widget
-                publicKey={uploadcarePublicKey}
-                onChange={handleLogoUpload}
-                clearable
-                imagesOnly
-                crop='1:1'
-                maxFileSize={2000000}
+            <div>
+              <input
+                type='file'
+                accept='image/*'
+                onChange={async (e) => {
+                  const file = e.target.files && e.target.files[0];
+                  if (!file) return;
+                  try {
+                    const result = await uploadFileToS3(
+                      file,
+                      null,
+                      'organization-images',
+                    );
+                    // store key for backend and url for preview
+                    setUserData((prev) => ({
+                      ...prev,
+                      logo: result.key,
+                      logoPreview: result.proxyUrl
+                        ? `${apiUrl}${result.proxyUrl}`
+                        : result.url,
+                    }));
+                    toast.success('Logo uploaded successfully');
+                  } catch (err) {
+                    toast.error(err.message || 'Logo upload failed');
+                  }
+                }}
               />
-            ) : (
-              <p className='auth-error'>
-                Uploadcare public key missing. Check .env configuration.
-              </p>
-            )}
-            {userData.logo && (
-              <img
-                src={`https://ucarecdn.com/${userData.logo}/-/preview/-/scale_crop/200x200/center/`}
-                alt='Organization Logo'
-                className='auth-logo-preview'
-              />
-            )}
+              {userData.logoPreview && (
+                <img
+                  src={resolveStoredAssetUrl(
+                    userData.logoPreview || userData.logo,
+                    process.env.REACT_APP_S3_BUCKET_URL,
+                    apiUrl,
+                  )}
+                  alt='Organization Logo'
+                  className='auth-logo-preview'
+                />
+              )}
+            </div>
           </div>
 
           <button

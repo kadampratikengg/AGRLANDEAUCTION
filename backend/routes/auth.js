@@ -5,6 +5,7 @@ const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const multer = require('multer');
 const User = require('../models/User');
+const SubUser = require('../models/SubUser');
 const {
   activatePendingFreeCredits,
   FREE_CREDIT_AMOUNT,
@@ -38,7 +39,7 @@ const generateUniqueUsername = async (baseUsername) => {
   return username;
 };
 
-// Login
+// Login (supports main User and SubUser)
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -52,54 +53,96 @@ router.post('/login', async (req, res) => {
         .json({ message: 'Email and password are required' });
     }
 
+    // Try main user first
     const user = await User.findOne({ email });
-    if (!user) {
+    if (user) {
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        console.log('❌ Password mismatch for email:', email);
+        return res.status(400).json({ message: 'Invalid email or password' });
+      }
+
+      if (!process.env.JWT_SECRET) {
+        console.error('❌ JWT_SECRET is not defined in environment variables');
+        return res
+          .status(500)
+          .json({
+            message: 'Server configuration error: JWT_SECRET is not set',
+          });
+      }
+
+      const token = jwt.sign(
+        { userId: user._id, role: user.role || 'admin' },
+        process.env.JWT_SECRET,
+        {
+          expiresIn: '2h',
+        },
+      );
+
+      await activatePendingFreeCredits(user);
+
+      const availableVotingCredits = user.subscription?.votingCredits || 0;
+      const isValidSubscription =
+        user.subscription?.isValid && availableVotingCredits > 0;
+
+      console.log('✅ Login successful for email (User):', email);
+      return res.status(200).json({
+        message: 'Login successful',
+        token,
+        userId: user._id,
+        role: user.role || 'admin',
+        isValidSubscription,
+        subscription: user.subscription
+          ? {
+              planDuration: user.subscription.planDuration,
+              startDate: user.subscription.startDate,
+              endDate: user.subscription.endDate,
+              activationDate: user.subscription.activationDate,
+              amount: user.subscription.amount,
+              paymentId: user.subscription.paymentId,
+              orderId: user.subscription.orderId,
+              votingCredits: user.subscription.votingCredits || 0,
+              usedVotingCredits: user.subscription.usedVotingCredits || 0,
+            }
+          : null,
+      });
+    }
+
+    // If not main user, try SubUser
+    const subUser = await SubUser.findOne({ email });
+    if (!subUser) {
       console.log('❌ User not found for email:', email);
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      console.log('❌ Password mismatch for email:', email);
+    const isSubMatch = await bcrypt.compare(password, subUser.password);
+    if (!isSubMatch) {
+      console.log('❌ Password mismatch for subuser email:', email);
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
-    if (!process.env.JWT_SECRET) {
-      console.error('❌ JWT_SECRET is not defined in environment variables');
-      return res
-        .status(500)
-        .json({ message: 'Server configuration error: JWT_SECRET is not set' });
+    const parentUser = await User.findById(subUser.user);
+    if (!parentUser) {
+      return res.status(404).json({ message: 'Parent user not found' });
     }
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: '2h',
-    });
+    const token = jwt.sign(
+      { userId: parentUser._id, role: 'subuser', subUserId: subUser._id },
+      process.env.JWT_SECRET,
+      { expiresIn: '2h' },
+    );
 
-    await activatePendingFreeCredits(user);
-
-    const availableVotingCredits = user.subscription?.votingCredits || 0;
-    const isValidSubscription =
-      user.subscription?.isValid && availableVotingCredits > 0;
-
-    console.log('✅ Login successful for email:', email);
-    res.status(200).json({
+    console.log('✅ Login successful for email (SubUser):', email);
+    return res.status(200).json({
       message: 'Login successful',
       token,
-      userId: user._id,
-      isValidSubscription,
-      subscription: user.subscription
-        ? {
-            planDuration: user.subscription.planDuration,
-            startDate: user.subscription.startDate,
-            endDate: user.subscription.endDate,
-            activationDate: user.subscription.activationDate,
-            amount: user.subscription.amount,
-            paymentId: user.subscription.paymentId,
-            orderId: user.subscription.orderId,
-            votingCredits: user.subscription.votingCredits || 0,
-            usedVotingCredits: user.subscription.usedVotingCredits || 0,
-          }
-        : null,
+      userId: parentUser._id,
+      subUserId: subUser._id,
+      role: 'subuser',
+      subscription: parentUser.subscription || null,
+      isValidSubscription:
+        parentUser.subscription?.isValid &&
+        (parentUser.subscription?.votingCredits || 0) > 0,
     });
   } catch (error) {
     console.error('❌ Login error:', error.message, error.stack);
@@ -206,9 +249,13 @@ router.post('/create-account', upload.none(), async (req, res) => {
 
     const savedUser = await newUser.save();
 
-    const token = jwt.sign({ userId: savedUser._id }, process.env.JWT_SECRET, {
-      expiresIn: '2h',
-    });
+    const token = jwt.sign(
+      { userId: savedUser._id, role: savedUser.role || 'admin' },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: '2h',
+      },
+    );
 
     res.status(201).json({
       message: 'Account created successfully',
@@ -338,9 +385,13 @@ router.post('/verify-payment', express.json(), async (req, res) => {
     await user.save();
     console.log('✅ Subscription saved for user:', user._id);
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: '2h',
-    });
+    const token = jwt.sign(
+      { userId: user._id, role: user.role || 'admin' },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: '2h',
+      },
+    );
 
     // Return updated subscription so client can immediately reflect credits.
     res.status(200).json({

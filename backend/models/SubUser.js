@@ -6,7 +6,7 @@ const subUserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   role: { type: String, enum: ['user', 'admin', 'moderator'], default: 'user' },
-  profilePic: { type: String }, // Stores Uploadcare UUID for the profile picture
+  profilePic: { type: String }, // Stores S3 object key or public URL for the profile picture
   permissions: [{ type: String }], // e.g., ['/voting/:eventId', '/manage']
 });
 

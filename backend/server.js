@@ -11,9 +11,12 @@ const authRoutes = require('./routes/auth');
 const contactRoutes = require('./routes/contact');
 const orderRoutes = require('./routes/order');
 const eventRoutes = require('./routes/event');
+const invoiceRoutes = require('./routes/invoice');
+const s3UploadRoutes = require('./routes/s3-upload');
+const healthRoutes = require('./routes/health');
 const profileRoutes = require('./routes/profile');
 const subUserRoutes = require('./routes/sub-users');
-const uploadcareRoutes = require('./routes/uploadcare');
+const uploadcareRoutes = require('./routes/uploadcare'); // now handles S3 deletions
 const { errorHandler, multerErrorHandler } = require('./middleware/error');
 const { authenticateToken } = require('./middleware/auth');
 const User = require('./models/User');
@@ -63,7 +66,9 @@ app.post('/api/change-password', authenticateToken, async (req, res) => {
 
   try {
     if (!newPassword || newPassword.length < 8) {
-      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+      return res
+        .status(400)
+        .json({ message: 'Password must be at least 8 characters' });
     }
 
     const user = await User.findById(req.user.userId);
@@ -81,9 +86,12 @@ app.post('/api/change-password', authenticateToken, async (req, res) => {
 
 app.use('/', authRoutes);
 app.use('/', orderRoutes);
+app.use('/', invoiceRoutes);
+app.use('/', s3UploadRoutes);
+app.use('/', healthRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api', eventRoutes);
-app.use('/api/uploadcare', uploadcareRoutes); // Ensure this is correctly mounted
+app.use('/api/uploadcare', uploadcareRoutes); // keep route path for backward-compatibility (deletes S3 objects)
 app.use('/', profileRoutes);
 app.use('/', subUserRoutes);
 

@@ -7,4 +7,6 @@ const voteSchema = new mongoose.Schema({
   timestamp: { type: String, required: true },
 });
 
+voteSchema.index({ eventId: 1, voterId: 1 }, { unique: true });
+
 module.exports = mongoose.model('Vote', voteSchema);

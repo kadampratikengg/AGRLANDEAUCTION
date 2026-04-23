@@ -3,7 +3,6 @@ import './Workspace.css';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { v4 as uuidv4 } from 'uuid';
-import { Widget } from '@uploadcare/react-widget';
 import Sidebar from './Sidebar';
 import {
   FiCalendar,
@@ -37,11 +36,34 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const [eventId, setEventId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [candidateSelectionError, setCandidateSelectionError] = useState('');
   const [availableCredits, setAvailableCredits] = useState(0);
   const [subscriptionMessage, setSubscriptionMessage] = useState('');
   const navigate = useNavigate();
 
-  const uploadcarePublicKey = process.env.REACT_APP_UPLOADCARE_PUBLIC_KEY;
+  const apiUrl = process.env.REACT_APP_API_URL;
+  const s3BucketUrl = process.env.REACT_APP_S3_BUCKET_URL;
+
+  const uploadFileToS3 = async (file, token, folder) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (folder) formData.append('folder', folder);
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${apiUrl}/api/upload/s3`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(
+        [err.message, err.error, err.code].filter(Boolean).join(': ') ||
+          'Upload failed',
+      );
+    }
+    return res.json(); // { url, key }
+  };
 
   const resetForm = () => {
     setFileName('');
@@ -61,39 +83,46 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     setEventId(null);
   };
 
-  const handleImageUpload = (index, fileInfo) => {
-    if (fileInfo && fileInfo.uuid && fileInfo.cdnUrl) {
+  const handleImageUpload = async (index, file) => {
+    if (!file) return;
+    try {
+      const token = localStorage.getItem('token');
+      const res = await uploadFileToS3(
+        file,
+        token,
+        'voting-candidate-images',
+      );
       setCandidateImages((prevImages) => ({
         ...prevImages,
-        [index]: { uuid: fileInfo.uuid, cdnUrl: fileInfo.cdnUrl },
+        [index]: {
+          key: res.key,
+          url: res.proxyUrl ? `${apiUrl}${res.proxyUrl}` : res.url,
+        },
       }));
-    } else {
-      alert('Failed to upload image. Please try again.');
+    } catch (err) {
+      console.error('Failed to upload candidate image:', err);
+      alert(err.message || 'Failed to upload image.');
     }
   };
 
   const handleClearImage = async (index) => {
     const image = candidateImages[index];
-    if (image && image.uuid) {
+    if (image && (image.key || image.uuid)) {
       try {
-        const apiUrl = process.env.REACT_APP_API_URL;
         const token = localStorage.getItem('token');
+        const keyOrUrl = image.key || image.uuid;
         const response = await fetch(
-          `${apiUrl}/api/uploadcare/delete/${image.uuid}`,
+          `${apiUrl}/api/uploadcare/delete/${encodeURIComponent(keyOrUrl)}`,
           {
             method: 'DELETE',
             headers: {
               Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
             },
           },
         );
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.message ||
-              `Failed to delete image from Uploadcare (Status: ${response.status})`,
-          );
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || 'Failed to delete image');
         }
         setCandidateImages((prevImages) => {
           const newImages = { ...prevImages };
@@ -101,14 +130,10 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
           return newImages;
         });
       } catch (error) {
-        console.error('Error deleting image from Uploadcare:', error.message);
-        alert(
-          error.message ||
-            'Failed to delete image from Uploadcare. Please try again.',
-        );
+        console.error('Error deleting image:', error);
+        alert(error.message || 'Failed to delete image. Please try again.');
       }
     } else {
-      // If no image exists, just remove it from state
       setCandidateImages((prevImages) => {
         const newImages = { ...prevImages };
         delete newImages[index];
@@ -224,8 +249,12 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       setEventId(eventId);
 
       const images = {};
-      eventToEdit.candidateImages.forEach((img) => {
-        images[img.candidateIndex] = { uuid: img.uuid, cdnUrl: img.cdnUrl };
+      (eventToEdit.candidateImages || []).forEach((img) => {
+        images[img.candidateIndex] = img.key
+          ? { key: img.key, url: img.url }
+          : img.uuid
+            ? { uuid: img.uuid, cdnUrl: img.cdnUrl }
+            : null;
       });
       setCandidateImages(images);
     } catch (error) {
@@ -317,6 +346,14 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
   const handleEventFormSubmit = async (e) => {
     e.preventDefault();
+    // Require at least one candidate selected (checkedRows)
+    if (!checkedRows || checkedRows.length === 0) {
+      setCandidateSelectionError(
+        'Please select at least one candidate before submitting the event.',
+      );
+      return;
+    }
+    setCandidateSelectionError('');
 
     const missingFields = [];
     if (!eventId && !editingEventId) missingFields.push('eventId');
@@ -365,11 +402,11 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         const image = candidateImages[rowIndex];
         return {
           candidateIndex: rowIndex,
-          uuid: image ? image.uuid : null,
-          cdnUrl: image ? image.cdnUrl : null,
+          key: image ? image.key || image.uuid : null,
+          url: image ? image.url || image.cdnUrl : null,
         };
       })
-      .filter((img) => img.uuid && img.cdnUrl);
+      .filter((img) => img.key && img.url);
 
     const formData = new FormData();
     formData.append('id', currentEventId);
@@ -706,40 +743,40 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                               <td key={i}>{value}</td>
                             ))}
                             <td>
-                              {uploadcarePublicKey ? (
-                                <div className='work-image-upload-cell'>
-                                  <Widget
-                                    publicKey={uploadcarePublicKey}
-                                    onChange={(fileInfo) =>
-                                      handleImageUpload(index, fileInfo)
-                                    }
-                                    clearable
-                                    imagesOnly
-                                    crop='1:1'
-                                    maxFileSize={2000000}
-                                  />
-                                  {candidateImages[index] && (
-                                    <div className='work-image-preview'>
-                                      <img
-                                        src={candidateImages[index].cdnUrl}
-                                        alt={`Candidate ${index}`}
-                                      />
-                                      <button
-                                        type='button'
-                                        className='work-button work-button--danger work-button--small'
-                                        onClick={() => handleClearImage(index)}
-                                      >
-                                        <FiImage /> Clear
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              ) : (
-                                <p className='work-error'>
-                                  Image upload disabled: Uploadcare public key
-                                  missing.
-                                </p>
-                              )}
+                              <div className='work-image-upload-cell'>
+                                <input
+                                  type='file'
+                                  accept='image/*'
+                                  onChange={async (e) => {
+                                    const file =
+                                      e.target.files && e.target.files[0];
+                                    if (!file) return;
+                                    await handleImageUpload(index, file);
+                                  }}
+                                />
+                                {candidateImages[index] && (
+                                  <div className='work-image-preview'>
+                                    <img
+                                      src={
+                                        candidateImages[index].url
+                                          ? candidateImages[index].url
+                                          : s3BucketUrl &&
+                                              candidateImages[index].uuid
+                                            ? `${s3BucketUrl}/${candidateImages[index].uuid}`
+                                            : candidateImages[index].cdnUrl
+                                      }
+                                      alt={`Candidate ${index}`}
+                                    />
+                                    <button
+                                      type='button'
+                                      className='work-button work-button--danger work-button--small'
+                                      onClick={() => handleClearImage(index)}
+                                    >
+                                      <FiImage /> Clear
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </td>
                             <td>
                               <input
@@ -755,14 +792,25 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                   </div>
                 )}
 
-                <button
-                  type='submit'
-                  className='work-button work-button--primary work-button--full'
-                >
-                  {editingEventId
-                    ? 'Update Voting Event'
-                    : 'Create Voting Event'}
-                </button>
+                <div>
+                  {candidateSelectionError && (
+                    <div
+                      className='work-empty work-empty--error'
+                      style={{ marginBottom: 8 }}
+                    >
+                      {candidateSelectionError}
+                    </div>
+                  )}
+                  <button
+                    type='submit'
+                    className='work-button work-button--primary work-button--full'
+                    disabled={!checkedRows || checkedRows.length === 0}
+                  >
+                    {editingEventId
+                      ? 'Update Voting Event'
+                      : 'Create Voting Event'}
+                  </button>
+                </div>
               </form>
             )}
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { FiAward, FiCalendar, FiClock, FiImage, FiTrendingUp, FiUsers } from 'react-icons/fi';
 import './result.css';
+import { resolveStoredImageUrl } from '../utils/imageUrl';
 
 const Result = () => {
   const { eventId } = useParams();
@@ -10,13 +11,14 @@ const Result = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isVotingComplete, setIsVotingComplete] = useState(false);
+  const apiUrl = process.env.REACT_APP_API_URL;
+  const s3BucketUrl = process.env.REACT_APP_S3_BUCKET_URL;
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = process.env.REACT_APP_API_URL;
 
       const eventResponse = await fetch(`${apiUrl}/api/events/${eventId}`, {
         headers: {
@@ -56,7 +58,7 @@ const Result = () => {
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [apiUrl, eventId]);
 
   useEffect(() => {
     fetchData();
@@ -70,7 +72,11 @@ const Result = () => {
   const candidateResults = event?.selectedData?.map((candidate, index) => ({
     name: candidate.Name || `Candidate ${index + 1}`,
     votes: voteCounts[candidate.Name || `Candidate ${index + 1}`] || 0,
-    image: event?.candidateImages?.find(img => Number(img.candidateIndex) === index)?.cdnUrl || null,
+    image: resolveStoredImageUrl(
+      event?.candidateImages?.find((img) => Number(img.candidateIndex) === index),
+      s3BucketUrl,
+      apiUrl,
+    ),
   })) || [];
 
   const totalVotes = votes.length;

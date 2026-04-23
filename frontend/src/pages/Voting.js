@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FiCalendar, FiClock, FiImage, FiPlay, FiUsers } from 'react-icons/fi';
 import './Voting.css';
+import { resolveStoredImageUrl } from '../utils/imageUrl';
 
 const Voting = () => {
   const { eventId } = useParams();
@@ -10,6 +11,7 @@ const Voting = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [canStartVoting, setCanStartVoting] = useState(false);
+  const s3BucketUrl = process.env.REACT_APP_S3_BUCKET_URL;
 
   const checkVotingTime = useCallback((eventData) => {
     if (eventData.date && eventData.startTime && eventData.stopTime) {
@@ -35,11 +37,9 @@ const Voting = () => {
         }
       }
 
-      const token = localStorage.getItem('token');
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/events/${eventId}`, {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -119,13 +119,18 @@ const Voting = () => {
               <tbody>
                 {event.selectedData.map((candidate, index) => {
                   const image = event.candidateImages?.find((img) => Number(img.candidateIndex) === index);
+                  const imageUrl = resolveStoredImageUrl(
+                    image,
+                    s3BucketUrl,
+                    process.env.REACT_APP_API_URL,
+                  );
                   return (
                     <tr key={index}>
                       {headers.map((header) => <td key={header}>{candidate[header]}</td>)}
                       <td>
-                        {image && image.cdnUrl ? (
+                        {imageUrl ? (
                           <img
-                            src={image.cdnUrl}
+                            src={imageUrl}
                             alt={`Candidate ${index + 1}`}
                             className="vote-candidate-image"
                             onError={(e) => { e.target.style.display = 'none'; }}

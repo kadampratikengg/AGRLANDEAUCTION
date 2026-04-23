@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Sidebar from './Sidebar';
-import { Widget } from '@uploadcare/react-widget';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useNavigate } from 'react-router-dom';
@@ -21,6 +20,7 @@ import {
   FiUser,
 } from 'react-icons/fi';
 import './Profile.css';
+import { resolveStoredAssetUrl } from '../utils/imageUrl';
 
 const Profile = ({ setIsAuthenticated }) => {
   const [userData, setUserData] = useState({
@@ -45,7 +45,29 @@ const Profile = ({ setIsAuthenticated }) => {
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
-  const uploadcarePublicKey = process.env.REACT_APP_UPLOADCARE_PUBLIC_KEY;
+  const apiUrl = process.env.REACT_APP_API_URL;
+  const s3BucketUrl = process.env.REACT_APP_S3_BUCKET_URL;
+
+  const uploadFileToS3 = async (file, token, folder) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (folder) formData.append('folder', folder);
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${apiUrl}/api/upload/s3`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(
+        [err.message, err.error, err.code].filter(Boolean).join(': ') ||
+          'Upload failed',
+      );
+    }
+    return res.json(); // { url, key }
+  };
   const navigate = useNavigate();
 
   const formatDate = (date) => {
@@ -162,16 +184,6 @@ Generated on: ${formatDate(new Date())}
     }
   };
 
-  const handleLogoUpload = (fileInfo) => {
-    if (fileInfo && fileInfo.uuid) {
-      setUserData((prev) => ({ ...prev, logo: fileInfo.uuid }));
-      toast.success('Logo uploaded successfully');
-    } else {
-      setMessage('Error uploading logo');
-      toast.error('Error uploading logo');
-    }
-  };
-
   const handlePasswordChange = async (e) => {
     e.preventDefault();
 
@@ -242,6 +254,12 @@ Generated on: ${formatDate(new Date())}
     });
   };
 
+  const organizationLogoUrl = resolveStoredAssetUrl(
+    userData.logoPreview || userData.logo,
+    s3BucketUrl,
+    apiUrl,
+  );
+
   const currentSubscription = userData.subscription || {};
   // Support both shapes: `subscription.votingCredits` (primary) or a legacy/top-level `votingCredits`.
   const availableCredits =
@@ -283,9 +301,9 @@ Generated on: ${formatDate(new Date())}
           </div>
           <div className='profile-hero__card'>
             <div className='profile-avatar'>
-              {userData.logo ? (
+              {organizationLogoUrl ? (
                 <img
-                  src={`https://ucarecdn.com/${userData.logo}/-/preview/-/scale_crop/200x200/center/`}
+                  src={organizationLogoUrl}
                   alt='Organization Logo'
                 />
               ) : (
@@ -472,20 +490,38 @@ Generated on: ${formatDate(new Date())}
               </div>
               <div className='profile-upload-action'>
                 <FiUploadCloud />
-                {uploadcarePublicKey ? (
-                  <Widget
-                    publicKey={uploadcarePublicKey}
-                    onChange={handleLogoUpload}
-                    clearable
-                    imagesOnly
-                    crop='1:1'
-                    maxFileSize={2000000}
+                <div>
+                  <input
+                    type='file'
+                    accept='image/*'
+                    onChange={async (e) => {
+                      const file = e.target.files && e.target.files[0];
+                      if (!file) return;
+                      try {
+                        const token = localStorage.getItem('token');
+                        const result = await uploadFileToS3(
+                          file,
+                          token,
+                          'organization-images',
+                        );
+                        // store key and preview url
+                        setUserData((prev) => ({
+                          ...prev,
+                          logo: result.key,
+                          logoPreview: result.proxyUrl
+                            ? `${apiUrl}${result.proxyUrl}`
+                            : result.url,
+                        }));
+                        toast.success('Logo uploaded successfully');
+                      } catch (err) {
+                        toast.error(err.message || 'Logo upload failed');
+                      }
+                    }}
                   />
-                ) : (
                   <span className='profile-upload-warning'>
-                    Uploadcare public key missing.
+                    Using S3 uploader
                   </span>
-                )}
+                </div>
               </div>
             </div>
           </form>

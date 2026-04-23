@@ -10,7 +10,8 @@ const authenticateToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // Attach user info (userId) to request
+    // Expected token payload: { userId, role, subUserId? }
+    req.user = decoded; // Attach decoded payload to request
     next();
   } catch (error) {
     console.error('❌ Invalid token:', error);

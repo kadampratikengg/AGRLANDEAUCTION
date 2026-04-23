@@ -1,34 +1,54 @@
-// routes/uploadcare.js
+// routes/uploadcare.js (repurposed for S3 object deletion)
 const express = require('express');
-const axios = require('axios');
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 
-router.delete('/delete/:uuid', authenticateToken, async (req, res) => {
-  const { uuid } = req.params;
-  const uploadcarePublicKey = process.env.UPLOADCARE_PUBLIC_KEY;
-  const uploadcareSecretKey = process.env.UPLOADCARE_SECRET_KEY;
+// Delete an uploaded object from S3. Accepts either an object key or a full URL.
+router.delete('/delete/:keyOrUrl', authenticateToken, async (req, res) => {
+  const { keyOrUrl } = req.params;
 
-  if (!uploadcarePublicKey || !uploadcareSecretKey) {
-    console.error('❌ Uploadcare credentials missing');
-    return res.status(500).json({ message: 'Uploadcare credentials not configured' });
+  if (!process.env.AWS_BUCKET_NAME) {
+    console.error('❌ AWS_BUCKET_NAME not configured');
+    return res.status(500).json({ message: 'S3 credentials not configured' });
   }
 
+  const extractKey = (val) => {
+    if (!val) return val;
+    if (val.startsWith('http')) {
+      const parts = val.split('/');
+      return parts.slice(3).join('/');
+    }
+    return val;
+  };
+
+  const key = extractKey(decodeURIComponent(keyOrUrl));
+
   try {
-    await axios.delete(`https://api.uploadcare.com/files/${uuid}/`, {
-      headers: {
-        Authorization: `Uploadcare.Simple ${uploadcarePublicKey}:${uploadcareSecretKey}`,
-        Accept: 'application/vnd.uploadcare-v0.7+json',
+    const s3 = new S3Client({
+      region: process.env.AWS_REGION,
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
       },
     });
-    console.log(`🗑️ Image deleted from Uploadcare: ${uuid}`);
+
+    await s3.send(
+      new DeleteObjectCommand({
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: key,
+      }),
+    );
+    console.log(`🗑️ Deleted image from S3: ${key}`);
     res.status(200).json({ message: 'Image deleted successfully' });
   } catch (error) {
-    console.error('❌ Error deleting image from Uploadcare:', error.response?.data || error.message);
-    if (error.response?.status === 404) {
-      return res.status(404).json({ message: 'Image not found in Uploadcare' });
-    }
-    res.status(500).json({ message: 'Failed to delete image from Uploadcare', error: error.message });
+    console.error('❌ Error deleting object from S3:', error.message || error);
+    res
+      .status(500)
+      .json({
+        message: 'Failed to delete object from S3',
+        error: error.message,
+      });
   }
 });
 

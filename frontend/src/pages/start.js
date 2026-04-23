@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import './start.css';
+import { resolveStoredImageUrl } from '../utils/imageUrl';
 
 const Start = () => {
   const { eventId } = useParams();
@@ -15,18 +16,18 @@ const Start = () => {
   const [highlightedCandidate, setHighlightedCandidate] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showVotePopup, setShowVotePopup] = useState(false);
+  const s3BucketUrl = process.env.REACT_APP_S3_BUCKET_URL;
 
   const fetchEventData = async () => {
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/events/${eventId}`, {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
       });
       if (!response.ok) {
-        throw new Error('Failed to fetch event data');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to fetch event data');
       }
       const data = await response.json();
       setEventData(data);
@@ -96,7 +97,8 @@ const Start = () => {
         });
 
         if (!response.ok) {
-          throw new Error('Failed to submit vote');
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || 'Failed to submit vote');
         }
 
         setVoteSubmitted(true);
@@ -206,16 +208,26 @@ const Start = () => {
           <div className="vote-popup-content">
             <h3>Select a Candidate to Vote</h3>
             <div className="candidates-list-horizontal">
-              {eventData.selectedData.slice(0, 20).map((candidate, index) => (
-                <div
-                  key={index}
-                  className={`candidate-card-horizontal ${
-                    selectedCandidate === (candidate.Name || `Candidate ${index + 1}`) ? 'selected' : ''
-                  } ${highlightedCandidate === index ? 'highlighted' : ''}`}
-                  onClick={() =>
-                    handleCandidateSelect(candidate.Name || `Candidate ${index + 1}`, index)
-                  }
-                >
+              {eventData.selectedData.slice(0, 20).map((candidate, index) => {
+                const image = eventData.candidateImages?.find(
+                  (img) => Number(img.candidateIndex) === index,
+                );
+                const imageUrl = resolveStoredImageUrl(
+                  image,
+                  s3BucketUrl,
+                  process.env.REACT_APP_API_URL,
+                );
+
+                return (
+                  <div
+                    key={index}
+                    className={`candidate-card-horizontal ${
+                      selectedCandidate === (candidate.Name || `Candidate ${index + 1}`) ? 'selected' : ''
+                    } ${highlightedCandidate === index ? 'highlighted' : ''}`}
+                    onClick={() =>
+                      handleCandidateSelect(candidate.Name || `Candidate ${index + 1}`, index)
+                    }
+                  >
                   <div className="candidate-card-content">
                     <div className="candidate-details">
                       {Object.entries(candidate).map(([key, value]) => (
@@ -225,9 +237,9 @@ const Start = () => {
                       ))}
                     </div>
                     <div className="candidate-image-container">
-                      {eventData.candidateImages?.find(img => Number(img.candidateIndex) === index)?.cdnUrl ? (
+                      {imageUrl ? (
                         <img
-                          src={eventData.candidateImages.find(img => Number(img.candidateIndex) === index).cdnUrl}
+                          src={imageUrl}
                           alt={`Candidate ${index + 1}`}
                           className="candidate-image-large"
                           onError={(e) => {
@@ -240,8 +252,9 @@ const Start = () => {
                       )}
                     </div>
                   </div>
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
