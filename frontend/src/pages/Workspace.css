@@ -570,6 +570,25 @@
   gap: 8px;
 }
 
+.work-image-upload-cell {
+  min-height: 42px;
+  align-content: start;
+}
+
+.work-image-upload-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px dashed var(--work-line);
+  border-radius: 12px;
+  color: var(--work-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
 .work-image-preview img {
   width: 72px;
   height: 72px;

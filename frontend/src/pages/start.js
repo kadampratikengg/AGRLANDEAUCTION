@@ -3,6 +3,12 @@ import { useParams } from 'react-router-dom';
 import './start.css';
 import { resolveStoredImageUrl } from '../utils/imageUrl';
 
+const getCandidateImage = (images, index) =>
+  images?.find(
+    (img) =>
+      Number(img.selectedIndex) === index || Number(img.candidateIndex) === index,
+  );
+
 const Start = () => {
   const { eventId } = useParams();
 
@@ -209,9 +215,7 @@ const Start = () => {
             <h3>Select a Candidate to Vote</h3>
             <div className="candidates-list-horizontal">
               {eventData.selectedData.slice(0, 20).map((candidate, index) => {
-                const image = eventData.candidateImages?.find(
-                  (img) => Number(img.candidateIndex) === index,
-                );
+                const image = getCandidateImage(eventData.candidateImages, index);
                 const imageUrl = resolveStoredImageUrl(
                   image,
                   s3BucketUrl,

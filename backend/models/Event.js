@@ -18,6 +18,8 @@ const eventSchema = new mongoose.Schema({
   candidateImages: [
     {
       candidateIndex: Number,
+      fileRowIndex: Number,
+      selectedIndex: Number,
       key: String, // S3 object key
       url: String, // public URL for the object
     },

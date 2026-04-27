@@ -4,6 +4,12 @@ import { FiAward, FiCalendar, FiClock, FiImage, FiTrendingUp, FiUsers } from 're
 import './result.css';
 import { resolveStoredImageUrl } from '../utils/imageUrl';
 
+const getCandidateImage = (images, index) =>
+  images?.find(
+    (img) =>
+      Number(img.selectedIndex) === index || Number(img.candidateIndex) === index,
+  );
+
 const Result = () => {
   const { eventId } = useParams();
   const [event, setEvent] = useState(null);
@@ -73,7 +79,7 @@ const Result = () => {
     name: candidate.Name || `Candidate ${index + 1}`,
     votes: voteCounts[candidate.Name || `Candidate ${index + 1}`] || 0,
     image: resolveStoredImageUrl(
-      event?.candidateImages?.find((img) => Number(img.candidateIndex) === index),
+      getCandidateImage(event?.candidateImages, index),
       s3BucketUrl,
       apiUrl,
     ),

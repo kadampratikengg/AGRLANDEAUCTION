@@ -250,7 +250,9 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
       const images = {};
       (eventToEdit.candidateImages || []).forEach((img) => {
-        images[img.candidateIndex] = img.key
+        const fileRowIndex =
+          img.fileRowIndex ?? img.candidateIndex ?? img.selectedIndex;
+        images[fileRowIndex] = img.key
           ? { key: img.key, url: img.url }
           : img.uuid
             ? { uuid: img.uuid, cdnUrl: img.cdnUrl }
@@ -398,10 +400,12 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     const currentEventId = editingEventId || eventId;
 
     const serializedCandidateImages = checkedRows
-      .map((rowIndex) => {
+      .map((rowIndex, selectedIndex) => {
         const image = candidateImages[rowIndex];
         return {
           candidateIndex: rowIndex,
+          fileRowIndex: rowIndex,
+          selectedIndex,
           key: image ? image.key || image.uuid : null,
           url: image ? image.url || image.cdnUrl : null,
         };
@@ -744,17 +748,27 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                             ))}
                             <td>
                               <div className='work-image-upload-cell'>
-                                <input
-                                  type='file'
-                                  accept='image/*'
-                                  onChange={async (e) => {
-                                    const file =
-                                      e.target.files && e.target.files[0];
-                                    if (!file) return;
-                                    await handleImageUpload(index, file);
-                                  }}
-                                />
-                                {candidateImages[index] && (
+                                {checkedRows.includes(index) ? (
+                                  <input
+                                    type='file'
+                                    accept='image/*'
+                                    onClick={(e) => {
+                                      e.currentTarget.value = '';
+                                    }}
+                                    onChange={async (e) => {
+                                      const file =
+                                        e.target.files && e.target.files[0];
+                                      if (!file) return;
+                                      await handleImageUpload(index, file);
+                                    }}
+                                  />
+                                ) : (
+                                  <span className='work-image-upload-placeholder'>
+                                    Select candidate first
+                                  </span>
+                                )}
+                                {checkedRows.includes(index) &&
+                                  candidateImages[index] && (
                                   <div className='work-image-preview'>
                                     <img
                                       src={

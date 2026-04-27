@@ -13,12 +13,62 @@ router.use(express.json());
 
 const { roleMiddleware } = require('../middleware/role');
 
+const rowsMatch = (left, right) => {
+  if (!left || !right) return false;
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  return leftKeys.every((key) => String(left[key]) === String(right[key]));
+};
+
+const normalizeCandidateImages = (event) => {
+  if (!event || !Array.isArray(event.candidateImages)) return event;
+
+  const fileData = Array.isArray(event.fileData) ? event.fileData : [];
+  const selectedData = Array.isArray(event.selectedData) ? event.selectedData : [];
+
+  const candidateImages = event.candidateImages.map((image) => {
+    if (image?.selectedIndex !== undefined && image?.selectedIndex !== null) {
+      return image;
+    }
+
+    const fileRowIndex =
+      image?.fileRowIndex ?? image?.candidateIndex ?? image?.selectedIndex;
+    let selectedIndex = null;
+
+    if (fileRowIndex !== undefined && fileRowIndex !== null) {
+      const fileRow = fileData[fileRowIndex];
+      selectedIndex = selectedData.findIndex((selectedRow) =>
+        rowsMatch(selectedRow, fileRow),
+      );
+    }
+
+    return {
+      ...image,
+      fileRowIndex,
+      selectedIndex: selectedIndex >= 0 ? selectedIndex : null,
+    };
+  });
+
+  if (typeof event.toObject === 'function') {
+    return {
+      ...event.toObject(),
+      candidateImages,
+    };
+  }
+
+  return {
+    ...event,
+    candidateImages,
+  };
+};
+
 // Fetch all events for authenticated user
 router.get('/events', authenticateToken, async (req, res) => {
   console.log('📥 Fetching all events for user:', req.user.userId);
   try {
     const events = await Event.find({ userId: req.user.userId });
-    res.status(200).json(events);
+    res.status(200).json(events.map(normalizeCandidateImages));
   } catch (error) {
     console.error('❌ Error fetching all events:', error);
     res
@@ -206,7 +256,7 @@ router.get('/events/:id', async (req, res) => {
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
-    res.status(200).json(event);
+    res.status(200).json(normalizeCandidateImages(event));
   } catch (error) {
     console.error('Error fetching event:', error);
     res

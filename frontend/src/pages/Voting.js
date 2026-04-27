@@ -74,6 +74,12 @@ const Voting = () => {
     ? Object.keys(event.selectedData[0])
     : [];
 
+  const getCandidateImage = (images, index) =>
+    images?.find(
+      (img) =>
+        Number(img.selectedIndex) === index || Number(img.candidateIndex) === index,
+    );
+
   return (
     <main className="vote-public-shell">
       <section className="vote-hero">
@@ -118,7 +124,7 @@ const Voting = () => {
               </thead>
               <tbody>
                 {event.selectedData.map((candidate, index) => {
-                  const image = event.candidateImages?.find((img) => Number(img.candidateIndex) === index);
+                  const image = getCandidateImage(event.candidateImages, index);
                   const imageUrl = resolveStoredImageUrl(
                     image,
                     s3BucketUrl,
