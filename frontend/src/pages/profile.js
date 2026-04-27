@@ -94,28 +94,39 @@ const Profile = ({ setIsAuthenticated }) => {
     return `INR ${Number(amount / 100).toLocaleString('en-IN')}`;
   };
 
-  const handleDownloadInvoice = (sub) => {
-    const invoiceContent = `
-Invoice for Subscription
-Plan: ${sub.planDuration || 'Not set'}
-Start Date: ${formatDate(sub.startDate)}
-End Date: ${formatDate(sub.endDate)}
-Amount: ${formatAmount(sub.amount)}
-Payment ID: ${sub.paymentId || 'Not set'}
-Order ID: ${sub.orderId || 'Not set'}
-Status: ${getSubscriptionStatus(sub, sub === userData.subscription)}
-Generated on: ${formatDate(new Date())}
-`;
-    const blob = new Blob([invoiceContent], { type: 'text/plain' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `invoice_${sub.paymentId || Date.now()}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-    toast.success('Invoice downloaded successfully');
+  const handleDownloadInvoice = async (sub) => {
+    if (!sub?.orderId) {
+      toast.error('Invoice is not available for this subscription');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(
+        `${apiUrl}/api/invoice/${encodeURIComponent(sub.orderId)}/download`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          responseType: 'blob',
+        },
+      );
+
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `invoice_${sub.orderId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success('Invoice downloaded successfully');
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message || 'Failed to download invoice',
+      );
+    }
   };
 
   useEffect(() => {
@@ -353,10 +364,7 @@ Generated on: ${formatDate(new Date())}
           <div className='profile-hero__card'>
             <div className='profile-avatar'>
               {organizationLogoUrl ? (
-                <img
-                  src={organizationLogoUrl}
-                  alt='Organization Logo'
-                />
+                <img src={organizationLogoUrl} alt='Organization Logo' />
               ) : (
                 <FiBriefcase />
               )}
