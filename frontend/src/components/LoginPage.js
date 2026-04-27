@@ -30,17 +30,10 @@ const LoginPage = ({ onLogin }) => {
         { withCredentials: true }
       );
 
-      if (response.data.isValidSubscription) {
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('userId', response.data.userId);
-        localStorage.setItem('isAuthenticated', 'true');
-        onLogin();
-      } else {
-        navigate('/planspage', {
-          state: { email, userId: response.data.userId }
-        });
-        setErrorMessage('No voting credits available. Please buy voting credits to continue.');
-      }
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('userId', response.data.userId);
+      localStorage.setItem('isAuthenticated', 'true');
+      onLogin();
     } catch (error) {
       setErrorMessage(error.response?.data?.message || 'An error occurred while logging in');
     } finally {

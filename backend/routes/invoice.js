@@ -241,7 +241,7 @@ router.get(
         .fontSize(10)
         .fillColor('#4B5563')
         .text(`Invoice No: ${orderId}`, leftX, 84)
-        .text(`Generated On: ${formatDate(new Date())}`, leftX, 98)
+        .text(`Invoice Date: ${formatDate(subscription.startDate)}`, leftX, 98)
         .text(`Status: ${getSubscriptionStatus(subscription)}`, leftX, 112);
 
       doc
