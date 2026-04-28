@@ -518,7 +518,7 @@ const Settings = ({ setIsAuthenticated }) => {
                   </label>
                 </div>
 
-                {/* <div className='work-check-grid'>
+                <div className='work-check-grid'>
                   <label>
                     <input
                       type='checkbox'
@@ -545,7 +545,7 @@ const Settings = ({ setIsAuthenticated }) => {
                     />{' '}
                     Access to Manage
                   </label>
-                </div> */}
+                </div>
 
                 <div className='work-upload-box'>
                   <div>

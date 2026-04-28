@@ -64,11 +64,9 @@ router.post('/login', async (req, res) => {
 
       if (!process.env.JWT_SECRET) {
         console.error('❌ JWT_SECRET is not defined in environment variables');
-        return res
-          .status(500)
-          .json({
-            message: 'Server configuration error: JWT_SECRET is not set',
-          });
+        return res.status(500).json({
+          message: 'Server configuration error: JWT_SECRET is not set',
+        });
       }
 
       const token = jwt.sign(
