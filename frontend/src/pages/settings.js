@@ -513,12 +513,12 @@ const Settings = ({ setIsAuthenticated }) => {
                     >
                       <option value='user'>User</option>
                       <option value='admin'>Admin</option>
-                      <option value='moderator'>Moderator</option>
+                      {/* <option value='moderator'>Moderator</option> */}
                     </select>
                   </label>
                 </div>
 
-                <div className='work-check-grid'>
+                {/* <div className='work-check-grid'>
                   <label>
                     <input
                       type='checkbox'
@@ -545,7 +545,7 @@ const Settings = ({ setIsAuthenticated }) => {
                     />{' '}
                     Access to Manage
                   </label>
-                </div>
+                </div> */}
 
                 <div className='work-upload-box'>
                   <div>

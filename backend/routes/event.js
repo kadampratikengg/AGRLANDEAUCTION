@@ -11,7 +11,23 @@ const upload = multer();
 
 router.use(express.json());
 
-const { roleMiddleware } = require('../middleware/role');
+const canManageEvents = (user = {}) => {
+  if (user.role === 'admin') return true;
+  if (user.role !== 'subuser') return false;
+
+  const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+  return user.subUserRole === 'admin' || permissions.includes('/manage');
+};
+
+const requireManageAccess = (req, res, next) => {
+  if (canManageEvents(req.user)) {
+    return next();
+  }
+
+  return res.status(403).json({
+    message: 'Access denied: manage permission required',
+  });
+};
 
 const rowsMatch = (left, right) => {
   if (!left || !right) return false;
@@ -269,7 +285,7 @@ router.get('/events/:id', async (req, res) => {
 router.post(
   '/events',
   authenticateToken,
-  roleMiddleware('admin'),
+  requireManageAccess,
   upload.none(),
   async (req, res) => {
     console.log('📥 Event submission received:', req.body);
@@ -400,7 +416,7 @@ router.post(
 router.put(
   '/events/:id',
   authenticateToken,
-  roleMiddleware('admin'),
+  requireManageAccess,
   upload.none(),
   async (req, res) => {
     console.log(
@@ -586,7 +602,7 @@ router.put(
 router.delete(
   '/events/:id',
   authenticateToken,
-  roleMiddleware('admin'),
+  requireManageAccess,
   async (req, res) => {
     console.log(
       '📥 Event deletion request for ID:',

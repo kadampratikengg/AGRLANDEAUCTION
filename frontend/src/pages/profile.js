@@ -136,7 +136,7 @@ const Profile = ({ setIsAuthenticated }) => {
         const token = localStorage.getItem('token');
         if (!token) {
           setMessage('No authentication token found. Redirecting to login...');
-          setTimeout(() => navigate('/login'), 2000);
+          setTimeout(() => navigate('/'), 2000);
           return;
         }
         const response = await axios.get(
@@ -156,7 +156,7 @@ const Profile = ({ setIsAuthenticated }) => {
               : 'Error fetching user data',
         );
         if (error.response?.status === 401) {
-          setTimeout(() => navigate('/login'), 2000);
+          setTimeout(() => navigate('/'), 2000);
         }
       } finally {
         setLoading(false);

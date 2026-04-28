@@ -39,7 +39,7 @@ export const initiatePayment = async (
       'User information missing. Please log in or provide required details.',
     );
     setLoading(false);
-    navigate('/login');
+    navigate('/');
     return;
   }
 
@@ -107,6 +107,9 @@ export const initiatePayment = async (
             );
             localStorage.setItem('token', verifyResponse.data.token);
             localStorage.setItem('userId', verifyResponse.data.userId);
+            localStorage.setItem('role', 'admin');
+            localStorage.setItem('subUserRole', '');
+            localStorage.setItem('permissions', JSON.stringify(['*']));
             localStorage.setItem('isAuthenticated', 'true');
             // If subscription object is returned, log credits for debugging
             if (verifyResponse.data.subscription) {

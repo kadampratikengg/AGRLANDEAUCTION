@@ -142,6 +142,9 @@ const CreateAccountPage = () => {
 
       localStorage.setItem('token', createResponse.data.token);
       localStorage.setItem('userId', createResponse.data.userId);
+      localStorage.setItem('role', createResponse.data.role || 'admin');
+      localStorage.setItem('subUserRole', '');
+      localStorage.setItem('permissions', JSON.stringify(['*']));
       localStorage.setItem('isAuthenticated', 'true');
 
       window.location.href = '/dashboard';

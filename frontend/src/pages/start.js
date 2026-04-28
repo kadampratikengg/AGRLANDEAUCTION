@@ -9,6 +9,21 @@ const getCandidateImage = (images, index) =>
       Number(img.selectedIndex) === index || Number(img.candidateIndex) === index,
   );
 
+const getPreferredEntries = (record) => {
+  if (!record || typeof record !== 'object') return [];
+
+  const entries = Object.entries(record);
+  const findEntry = (patterns) =>
+    entries.find(([key]) =>
+      patterns.some((pattern) => key.toLowerCase().includes(pattern)),
+    );
+
+  const nameEntry = findEntry(['name']);
+  const idEntry = findEntry(['id number', 'id', 'voter id']);
+
+  return [idEntry, nameEntry].filter(Boolean);
+};
+
 const Start = () => {
   const { eventId } = useParams();
 
@@ -182,15 +197,15 @@ const Start = () => {
                   <table>
                     <thead>
                       <tr>
-                        {Object.keys(verificationResult.rowData).map((key) => (
+                        {getPreferredEntries(verificationResult.rowData).map(([key]) => (
                           <th key={key}>{key}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
-                        {Object.values(verificationResult.rowData).map((value, index) => (
-                          <td key={index}>{value}</td>
+                        {getPreferredEntries(verificationResult.rowData).map(([key, value]) => (
+                          <td key={key}>{value}</td>
                         ))}
                       </tr>
                     </tbody>
@@ -214,33 +229,31 @@ const Start = () => {
           <div className="vote-popup-content">
             <h3>Select a Candidate to Vote</h3>
             <div className="candidates-list-horizontal">
-              {eventData.selectedData.slice(0, 20).map((candidate, index) => {
+              {eventData.selectedData.map((candidate, index) => {
                 const image = getCandidateImage(eventData.candidateImages, index);
                 const imageUrl = resolveStoredImageUrl(
                   image,
                   s3BucketUrl,
                   process.env.REACT_APP_API_URL,
                 );
+                const candidateLabel =
+                  candidate.Name ||
+                  candidate.name ||
+                  candidate.Candidate ||
+                  candidate.candidate ||
+                  `Candidate ${index + 1}`;
 
                 return (
                   <div
                     key={index}
-                    className={`candidate-card-horizontal ${
-                      selectedCandidate === (candidate.Name || `Candidate ${index + 1}`) ? 'selected' : ''
+                    className={`candidate-row ${
+                      selectedCandidate === candidateLabel ? 'selected' : ''
                     } ${highlightedCandidate === index ? 'highlighted' : ''}`}
                     onClick={() =>
-                      handleCandidateSelect(candidate.Name || `Candidate ${index + 1}`, index)
+                      handleCandidateSelect(candidateLabel, index)
                     }
                   >
-                  <div className="candidate-card-content">
-                    <div className="candidate-details">
-                      {Object.entries(candidate).map(([key, value]) => (
-                        <p key={key}>
-                          <strong>{key}:</strong> {value}
-                        </p>
-                      ))}
-                    </div>
-                    <div className="candidate-image-container">
+                    <div className="candidate-image-container candidate-image-container--row">
                       {imageUrl ? (
                         <img
                           src={imageUrl}
@@ -255,7 +268,13 @@ const Start = () => {
                         <p>No image</p>
                       )}
                     </div>
-                  </div>
+                    <div className="candidate-row-details">
+                      {getPreferredEntries(candidate).map(([key, value]) => (
+                        <p key={key}>
+                          <strong>{key}:</strong> {value}
+                        </p>
+                      ))}
+                    </div>
                   </div>
                 );
               })}

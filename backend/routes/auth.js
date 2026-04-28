@@ -127,7 +127,13 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { userId: parentUser._id, role: 'subuser', subUserId: subUser._id },
+      {
+        userId: parentUser._id,
+        role: 'subuser',
+        subUserId: subUser._id,
+        subUserRole: subUser.role || 'user',
+        permissions: subUser.permissions || [],
+      },
       process.env.JWT_SECRET,
       { expiresIn: '2h' },
     );
@@ -139,6 +145,8 @@ router.post('/login', async (req, res) => {
       userId: parentUser._id,
       subUserId: subUser._id,
       role: 'subuser',
+      subUserRole: subUser.role || 'user',
+      permissions: subUser.permissions || [],
       subscription: parentUser.subscription || null,
       isValidSubscription:
         parentUser.subscription?.isValid &&

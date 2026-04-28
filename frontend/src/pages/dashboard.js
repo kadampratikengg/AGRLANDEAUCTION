@@ -9,6 +9,13 @@ const Dashboard = ({ setIsAuthenticated }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const role = localStorage.getItem('role') || 'admin';
+  const subUserRole = localStorage.getItem('subUserRole') || '';
+  const permissions = JSON.parse(localStorage.getItem('permissions') || '[]');
+  const canManage =
+    role === 'admin' ||
+    (role === 'subuser' &&
+      (subUserRole === 'admin' || permissions.includes('/manage')));
 
   useEffect(() => {
     const fetchActiveEvents = async () => {
@@ -97,12 +104,16 @@ const Dashboard = ({ setIsAuthenticated }) => {
           <FiExternalLink /> Open voting link
         </a>
         <div className="work-actions">
-          <button className="work-button work-button--danger" onClick={() => handleDeleteEvent(event.id)}>
-            <FiTrash2 /> Delete
-          </button>
-          <button className="work-button work-button--primary" onClick={() => handleViewResults(event.id)}>
-            <FiTrendingUp /> Results
-          </button>
+          {canManage && (
+            <button className="work-button work-button--danger" onClick={() => handleDeleteEvent(event.id)}>
+              <FiTrash2 /> Delete
+            </button>
+          )}
+          {canManage && (
+            <button className="work-button work-button--primary" onClick={() => handleViewResults(event.id)}>
+              <FiTrendingUp /> Results
+            </button>
+          )}
         </div>
       </article>
     ));

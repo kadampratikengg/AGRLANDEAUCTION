@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FiArrowRight, FiLock, FiMail, FiShield } from 'react-icons/fi';
 import './LoginPage.css';
 
@@ -11,6 +11,7 @@ const LoginPage = ({ onLogin }) => {
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,8 +33,20 @@ const LoginPage = ({ onLogin }) => {
 
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('userId', response.data.userId);
+      localStorage.setItem('role', response.data.role || 'admin');
+      localStorage.setItem('subUserRole', response.data.subUserRole || '');
+      localStorage.setItem(
+        'permissions',
+        JSON.stringify(response.data.permissions || []),
+      );
       localStorage.setItem('isAuthenticated', 'true');
       onLogin();
+      const fallbackPath =
+        (response.data.role || 'admin') === 'subuser'
+          ? '/dashboard'
+          : '/dashboard';
+      const redirectPath = location.state?.from?.pathname || fallbackPath;
+      navigate(redirectPath, { replace: true });
     } catch (error) {
       setErrorMessage(error.response?.data?.message || 'An error occurred while logging in');
     } finally {

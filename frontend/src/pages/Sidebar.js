@@ -16,6 +16,13 @@ const Sidebar = ({ setIsAuthenticated }) => {
   // true = collapsed (icons only), false = expanded (icons + labels)
   const [isMinimized, setIsMinimized] = useState(true);
   const navigate = useNavigate();
+  const role = localStorage.getItem('role') || 'admin';
+  const subUserRole = localStorage.getItem('subUserRole') || '';
+  const permissions = JSON.parse(localStorage.getItem('permissions') || '[]');
+  const canManage =
+    role === 'admin' ||
+    (role === 'subuser' &&
+      (subUserRole === 'admin' || permissions.includes('/manage')));
 
   const toggleSidebar = () => {
     setIsMinimized((prev) => !prev);
@@ -29,6 +36,9 @@ const Sidebar = ({ setIsAuthenticated }) => {
     localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('token');
     localStorage.removeItem('userId');
+    localStorage.removeItem('role');
+    localStorage.removeItem('subUserRole');
+    localStorage.removeItem('permissions');
     setIsAuthenticated && setIsAuthenticated(false);
     navigate('/', { replace: true });
   };
@@ -53,24 +63,30 @@ const Sidebar = ({ setIsAuthenticated }) => {
             {!isMinimized && 'Dashboard'}
           </button>
         </li>
-        <li>
-          <button onClick={() => handleNavigation('/manage')}>
-            <FaCogs size={20} />
-            {!isMinimized && 'Manage'}
-          </button>
-        </li>
-        <li>
-          <button onClick={() => handleNavigation('/profile')}>
-            <FaUserCircle size={20} />
-            {!isMinimized && 'Profile'}
-          </button>
-        </li>
-        <li>
-          <button onClick={() => handleNavigation('/settings')}>
-            <FaCog size={20} />
-            {!isMinimized && 'Settings'}
-          </button>
-        </li>
+        {canManage && (
+          <li>
+            <button onClick={() => handleNavigation('/manage')}>
+              <FaCogs size={20} />
+              {!isMinimized && 'Manage'}
+            </button>
+          </li>
+        )}
+        {role === 'admin' && (
+          <li>
+            <button onClick={() => handleNavigation('/profile')}>
+              <FaUserCircle size={20} />
+              {!isMinimized && 'Profile'}
+            </button>
+          </li>
+        )}
+        {role === 'admin' && (
+          <li>
+            <button onClick={() => handleNavigation('/settings')}>
+              <FaCog size={20} />
+              {!isMinimized && 'Settings'}
+            </button>
+          </li>
+        )}
         {/* Uncomment to enable Bids menu
         <li>
           <button onClick={() => handleNavigation('/bids')}>
