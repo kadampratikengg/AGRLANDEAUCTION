@@ -3,8 +3,10 @@ const axios = require('axios');
 const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const multer = require('multer');
 const Event = require('../models/Event');
+const EventHistory = require('../models/EventHistory');
 const Vote = require('../models/Vote');
 const User = require('../models/User');
+const SubUser = require('../models/SubUser');
 const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
 const upload = multer();
@@ -41,7 +43,9 @@ const normalizeCandidateImages = (event) => {
   if (!event || !Array.isArray(event.candidateImages)) return event;
 
   const fileData = Array.isArray(event.fileData) ? event.fileData : [];
-  const selectedData = Array.isArray(event.selectedData) ? event.selectedData : [];
+  const selectedData = Array.isArray(event.selectedData)
+    ? event.selectedData
+    : [];
 
   const candidateImages = event.candidateImages.map((image) => {
     if (image?.selectedIndex !== undefined && image?.selectedIndex !== null) {
@@ -79,6 +83,86 @@ const normalizeCandidateImages = (event) => {
   };
 };
 
+const getEventStatus = (event) => {
+  const endTime = Number(event.expiry);
+  if (Number.isFinite(endTime) && Date.now() > endTime) return 'done';
+  return 'active';
+};
+
+const getResultDate = (event) => {
+  const endTime = Number(event.expiry);
+  if (Number.isFinite(endTime)) return new Date(endTime);
+  const stopDate = new Date(`${event.date}T${event.stopTime}`);
+  return Number.isNaN(stopDate.getTime()) ? null : stopDate;
+};
+
+const getVoteSummary = (votes = []) => {
+  const counts = votes.reduce((acc, vote) => {
+    acc[vote.candidate] = (acc[vote.candidate] || 0) + 1;
+    return acc;
+  }, {});
+
+  const winnerEntry = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+
+  return {
+    totalVotes: votes.length,
+    winner: winnerEntry ? winnerEntry[0] : 'No votes yet',
+    winnerVotes: winnerEntry ? winnerEntry[1] : 0,
+  };
+};
+
+const resolveActor = async (requestUser = {}) => {
+  if (requestUser.subUserId) {
+    const subUser = await SubUser.findById(requestUser.subUserId).lean();
+    return {
+      id: String(requestUser.subUserId),
+      name: subUser?.fullName || subUser?.email || 'Sub user',
+      role: requestUser.subUserRole || subUser?.role || 'user',
+      type: 'sub user',
+    };
+  }
+
+  const user = requestUser.userId
+    ? await User.findById(requestUser.userId).lean()
+    : null;
+
+  return {
+    id: requestUser.userId ? String(requestUser.userId) : '',
+    name: user?.name || user?.email || 'Admin',
+    role: requestUser.role || user?.role || 'admin',
+    type: 'user',
+  };
+};
+
+const hasActorName = (actor) =>
+  actor && typeof actor.name === 'string' && actor.name.trim().length > 0;
+
+const withFallbackActor = (actor, fallbackActor) =>
+  hasActorName(actor) ? actor : fallbackActor;
+
+const toHistoryRecord = (event, votes, fallbackActor = null) => {
+  const summary = getVoteSummary(votes);
+  const status = getEventStatus(event);
+
+  return {
+    eventId: event.id,
+    name: event.name,
+    date: event.date,
+    startTime: event.startTime,
+    stopTime: event.stopTime,
+    status,
+    action: 'created',
+    winner: summary.winner,
+    totalVotes: summary.totalVotes,
+    winnerVotes: summary.winnerVotes,
+    resultDate: status === 'done' ? getResultDate(event) : null,
+    createdAt: event.createdAt || null,
+    deletedAt: null,
+    createdBy: withFallbackActor(event.createdBy, fallbackActor),
+    deletedBy: null,
+  };
+};
+
 // Fetch all events for authenticated user
 router.get('/events', authenticateToken, async (req, res) => {
   console.log('📥 Fetching all events for user:', req.user.userId);
@@ -90,6 +174,105 @@ router.get('/events', authenticateToken, async (req, res) => {
     res
       .status(500)
       .json({ message: 'Failed to fetch all events', error: error.message });
+  }
+});
+
+// Fetch active and deleted event history for authenticated user
+router.get('/event-history', authenticateToken, async (req, res) => {
+  try {
+    const owner = await User.findById(req.user.userId).lean();
+    const fallbackActor = {
+      id: req.user.userId,
+      name: owner?.name || owner?.email || 'Account admin',
+      role: owner?.role || 'admin',
+      type: 'user',
+    };
+    const events = await Event.find({ userId: req.user.userId }).sort({
+      createdAt: -1,
+    });
+    const savedHistory = await EventHistory.find({ userId: req.user.userId })
+      .sort({ createdAt: -1 })
+      .lean();
+    const savedCreatedEventIds = new Set(
+      savedHistory
+        .filter((event) => event.action === 'created')
+        .map((event) => event.eventId),
+    );
+
+    const activeHistory = await Promise.all(
+      events
+        .filter((event) => !savedCreatedEventIds.has(event.id))
+        .map(async (event) => {
+          const votes = await Vote.find({ eventId: event.id }).lean();
+          return toHistoryRecord(event, votes, fallbackActor);
+        }),
+    );
+
+    const savedHistoryRecords = await Promise.all(
+      savedHistory.map(async (event) => {
+        const liveEvent = events.find((item) => item.id === event.eventId);
+        // Try to load votes for the event (works even if Event doc was deleted)
+        const votes = await Vote.find({ eventId: event.eventId }).lean();
+
+        let summary;
+        if (votes && votes.length > 0) {
+          summary = getVoteSummary(votes);
+        } else if (liveEvent) {
+          const liveVotes = await Vote.find({ eventId: liveEvent.id }).lean();
+          summary = getVoteSummary(liveVotes || []);
+        } else {
+          summary = {
+            totalVotes: event.totalVotes || 0,
+            winner: event.winner || 'No votes yet',
+            winnerVotes: event.winnerVotes || 0,
+          };
+        }
+
+        const status =
+          event.action === 'deleted'
+            ? 'deleted'
+            : liveEvent
+              ? getEventStatus(liveEvent)
+              : event.status;
+
+        return {
+          eventId: event.eventId,
+          name: liveEvent?.name || event.name,
+          date: liveEvent?.date || event.date,
+          startTime: liveEvent?.startTime || event.startTime,
+          stopTime: liveEvent?.stopTime || event.stopTime,
+          status,
+          action:
+            event.action ||
+            (event.status === 'deleted' ? 'deleted' : 'created'),
+          winner: summary.winner,
+          totalVotes: summary.totalVotes,
+          winnerVotes: summary.winnerVotes || 0,
+          resultDate:
+            status === 'done'
+              ? getResultDate(liveEvent || event)
+              : event.resultDate || event.deletedAt || null,
+          createdAt: event.createdAt || null,
+          deletedAt: event.deletedAt || null,
+          createdBy: withFallbackActor(event.createdBy, fallbackActor),
+          deletedBy: withFallbackActor(event.deletedBy, null),
+        };
+      }),
+    );
+
+    res.status(200).json(
+      [...activeHistory, ...savedHistoryRecords].sort((a, b) => {
+        const left = new Date(a.deletedAt || a.resultDate || a.createdAt || 0);
+        const right = new Date(b.deletedAt || b.resultDate || b.createdAt || 0);
+        return right - left;
+      }),
+    );
+  } catch (error) {
+    console.error('Error fetching event history:', error);
+    res.status(500).json({
+      message: 'Failed to fetch event history',
+      error: error.message,
+    });
   }
 });
 
@@ -185,10 +368,7 @@ router.post('/verify-id/:eventId', upload.none(), async (req, res) => {
 
     const rowData = event.fileData.find((row) => {
       const values = Object.values(row);
-      return (
-        values.length >= 2 &&
-        String(values[1]).trim() === id
-      );
+      return values.length >= 2 && String(values[1]).trim() === id;
     });
 
     if (!rowData) {
@@ -211,58 +391,54 @@ router.post('/verify-id/:eventId', upload.none(), async (req, res) => {
 });
 
 // Submit Vote for a public voting session
-router.post(
-  '/vote/:eventId',
-  upload.none(),
-  async (req, res) => {
-    console.log(
-      '📥 Vote submission for event:',
-      req.params.eventId,
-      'Data:',
-      req.body,
-    );
-    const voterId = String(req.body.voterId || '').trim();
-    const candidate = String(req.body.candidate || '').trim();
-    const eventId = req.params.eventId;
+router.post('/vote/:eventId', upload.none(), async (req, res) => {
+  console.log(
+    '📥 Vote submission for event:',
+    req.params.eventId,
+    'Data:',
+    req.body,
+  );
+  const voterId = String(req.body.voterId || '').trim();
+  const candidate = String(req.body.candidate || '').trim();
+  const eventId = req.params.eventId;
 
-    if (!voterId || !candidate) {
-      return res
-        .status(400)
-        .json({ message: 'Voter ID and candidate are required' });
+  if (!voterId || !candidate) {
+    return res
+      .status(400)
+      .json({ message: 'Voter ID and candidate are required' });
+  }
+
+  try {
+    const event = await Event.findOne({ id: eventId });
+    if (!event) {
+      return res.status(404).json({ message: 'Voting event not found' });
     }
 
-    try {
-      const event = await Event.findOne({ id: eventId });
-      if (!event) {
-        return res.status(404).json({ message: 'Voting event not found' });
-      }
-
-      const existingVote = await Vote.findOne({ eventId, voterId });
-      if (existingVote) {
-        return res.status(400).json({ message: 'This ID has already voted' });
-      }
-
-      const vote = new Vote({
-        eventId,
-        voterId,
-        candidate,
-        timestamp: new Date().toISOString(),
-      });
-
-      await vote.save();
-      console.log('Vote saved successfully:', vote);
-      res.status(201).json({ message: 'Vote submitted successfully' });
-    } catch (error) {
-      console.error('Error saving vote:', error);
-      if (error && error.code === 11000) {
-        return res.status(400).json({ message: 'This ID has already voted' });
-      }
-      res
-        .status(500)
-        .json({ message: 'Failed to submit vote', error: error.message });
+    const existingVote = await Vote.findOne({ eventId, voterId });
+    if (existingVote) {
+      return res.status(400).json({ message: 'This ID has already voted' });
     }
-  },
-);
+
+    const vote = new Vote({
+      eventId,
+      voterId,
+      candidate,
+      timestamp: new Date().toISOString(),
+    });
+
+    await vote.save();
+    console.log('Vote saved successfully:', vote);
+    res.status(201).json({ message: 'Vote submitted successfully' });
+  } catch (error) {
+    console.error('Error saving vote:', error);
+    if (error && error.code === 11000) {
+      return res.status(400).json({ message: 'This ID has already voted' });
+    }
+    res
+      .status(500)
+      .json({ message: 'Failed to submit vote', error: error.message });
+  }
+});
 
 // Get Event
 router.get('/events/:id', async (req, res) => {
@@ -363,6 +539,7 @@ router.post(
           .json({ message: 'selectedData must be a non-empty array' });
       }
 
+      const actor = await resolveActor(req.user);
       const event = new Event({
         id,
         userId: req.user.userId,
@@ -376,6 +553,7 @@ router.post(
         candidateImages: parsedCandidateImages,
         expiry: Number(expiry),
         link,
+        createdBy: actor,
       });
 
       await event.validate();
@@ -398,6 +576,21 @@ router.post(
         });
       }
       console.log('✅ Event saved successfully:', event);
+      await EventHistory.create({
+        eventId: event.id,
+        userId: req.user.userId,
+        name: event.name,
+        date: event.date,
+        startTime: event.startTime,
+        stopTime: event.stopTime,
+        status: getEventStatus(event),
+        action: 'created',
+        winner: 'No votes yet',
+        totalVotes: 0,
+        winnerVotes: 0,
+        resultDate: null,
+        createdBy: actor,
+      });
       res.status(201).json({
         message: 'Event created successfully',
         link: event.link,
@@ -629,6 +822,10 @@ router.delete(
       const currentTime = new Date();
       const shouldRestoreCredit = currentTime < eventStartTime;
       let restoredCredit = false;
+      const votes = await Vote.find({ eventId: req.params.id }).lean();
+      const voteSummary = getVoteSummary(votes);
+      const resultDate = getResultDate(event);
+      const actor = await resolveActor(req.user);
 
       // Delete images from S3 when configured
       if (event.candidateImages && event.candidateImages.length > 0) {
@@ -682,6 +879,31 @@ router.delete(
         id: req.params.id,
         userId: req.user.userId,
       });
+      await EventHistory.findOneAndUpdate(
+        {
+          eventId: event.id,
+          userId: req.user.userId,
+          action: 'deleted',
+        },
+        {
+          eventId: event.id,
+          userId: req.user.userId,
+          name: event.name,
+          date: event.date,
+          startTime: event.startTime,
+          stopTime: event.stopTime,
+          status: 'deleted',
+          action: 'deleted',
+          winner: voteSummary.winner,
+          totalVotes: voteSummary.totalVotes,
+          winnerVotes: voteSummary.winnerVotes || 0,
+          resultDate,
+          deletedAt: new Date(),
+          createdBy: event.createdBy || null,
+          deletedBy: actor,
+        },
+        { upsert: true, new: true },
+      );
       await Vote.deleteMany({ eventId: req.params.id });
       console.log(`🗑️ Deleted votes for event: ${req.params.id}`);
 

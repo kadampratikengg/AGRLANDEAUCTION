@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import './Workspace.css';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import {
+  FiChevronDown,
+  FiChevronUp,
+  FiClock,
   FiEdit3,
   FiPlus,
   FiShield,
@@ -27,8 +30,130 @@ const Settings = ({ setIsAuthenticated }) => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [subUsers, setSubUsers] = useState([]);
   const [editingUserId, setEditingUserId] = useState(null);
+  const [eventHistory, setEventHistory] = useState([]);
+  const [historyError, setHistoryError] = useState('');
+  const [historyExpanded, setHistoryExpanded] = useState(false);
   const apiUrl = process.env.REACT_APP_API_URL;
   const s3BucketUrl = process.env.REACT_APP_S3_BUCKET_URL;
+
+  const formatActorName = (actor) =>
+    actor?.name || actor?.fullName || actor?.email || 'Account admin';
+
+  const formatDateTime = (value) => {
+    if (!value) return 'N/A';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleString('en-IN');
+  };
+
+  const getHistoryActor = (event) =>
+    event.action === 'deleted'
+      ? event.deletedBy || event.createdBy
+      : event.createdBy;
+
+  const getHistoryActionLabel = (event) => {
+    if (event.action === 'deleted') return 'Delete Voting';
+    if (event.action === 'conducted') return 'Conducted Voting';
+    return 'Create Voting';
+  };
+
+  const isVotingCompleted = (event) => {
+    if (event.action === 'conducted' || event.status === 'done') return true;
+    if (!event.resultDate) return false;
+
+    const resultDate = new Date(event.resultDate);
+    const referenceDate = event.deletedAt
+      ? new Date(event.deletedAt)
+      : new Date();
+
+    return (
+      !Number.isNaN(resultDate.getTime()) &&
+      !Number.isNaN(referenceDate.getTime()) &&
+      referenceDate >= resultDate
+    );
+  };
+
+  const getHistoryStatusLabel = (event) => {
+    if (event.action === 'conducted') return 'Voting Done';
+
+    if (event.action === 'deleted') {
+      const deletedAt = event.deletedAt ? new Date(event.deletedAt) : null;
+      const start =
+        event.date && event.startTime
+          ? new Date(`${event.date}T${event.startTime}`)
+          : null;
+      const stop =
+        event.date && event.stopTime
+          ? new Date(`${event.date}T${event.stopTime}`)
+          : null;
+      const resultDate = event.resultDate ? new Date(event.resultDate) : stop;
+
+      if (
+        deletedAt &&
+        resultDate &&
+        !Number.isNaN(deletedAt.getTime()) &&
+        !Number.isNaN(resultDate.getTime()) &&
+        deletedAt > resultDate
+      ) {
+        return 'Delete After Voting Done';
+      }
+
+      if (
+        deletedAt &&
+        start &&
+        !Number.isNaN(deletedAt.getTime()) &&
+        !Number.isNaN(start.getTime()) &&
+        deletedAt < start
+      ) {
+        return 'Delete Before Start';
+      }
+
+      if (
+        deletedAt &&
+        start &&
+        stop &&
+        !Number.isNaN(deletedAt.getTime()) &&
+        !Number.isNaN(start.getTime()) &&
+        !Number.isNaN(stop.getTime()) &&
+        deletedAt >= start &&
+        deletedAt <= stop
+      ) {
+        return 'Delete In Between Voting';
+      }
+
+      return 'Delete After Start';
+    }
+
+    if (isVotingCompleted(event)) return 'Voting Done';
+    return 'Voting Not Done';
+  };
+
+  const visibleHistory = useMemo(() => {
+    const list = eventHistory.flatMap((event) => {
+      if (event.action === 'conducted' || !isVotingCompleted(event)) {
+        return [event];
+      }
+
+      const conductedLog = {
+        ...event,
+        action: 'conducted',
+        status: 'done',
+        deletedAt: null,
+        historyKey: `${event.eventId}-conducted-${event.resultDate || event.createdAt || event.deletedAt || ''}`,
+      };
+
+      return event.action === 'deleted'
+        ? [conductedLog, event]
+        : [event, conductedLog];
+    });
+
+    // Ensure logs are ordered by time (latest first)
+    return list.sort((a, b) => {
+      const left = new Date(a.deletedAt || a.resultDate || a.createdAt || 0);
+      const right = new Date(b.deletedAt || b.resultDate || b.createdAt || 0);
+      return right - left;
+    });
+  }, [eventHistory]);
 
   const uploadFileToS3 = async (file, token, folder) => {
     const formData = new FormData();
@@ -51,9 +176,32 @@ const Settings = ({ setIsAuthenticated }) => {
     return res.json(); // { url, key }
   };
 
+  const fetchEventHistory = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No authentication token found');
+      const response = await fetch(`${apiUrl}/api/event-history`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to load voting history');
+      }
+      setEventHistory(data);
+      setHistoryError('');
+    } catch (err) {
+      setHistoryError(err.message || 'Unable to load voting history.');
+    }
+  }, [apiUrl]);
+
   useEffect(() => {
     fetchSubUsers();
-  }, []);
+    fetchEventHistory();
+  }, [fetchEventHistory]);
 
   const fetchSubUsers = async () => {
     try {
@@ -88,7 +236,8 @@ const Settings = ({ setIsAuthenticated }) => {
   };
 
   const handleClearSubUserImage = async () => {
-    const currentImage = subUserProfilePic?.key || subUserProfilePic?.uuid || '';
+    const currentImage =
+      subUserProfilePic?.key || subUserProfilePic?.uuid || '';
     if (!currentImage) {
       setSubUserProfilePic(null);
       return;
@@ -103,20 +252,23 @@ const Settings = ({ setIsAuthenticated }) => {
         if (subUserPermissions.voting) permissions.push('/voting/:eventId');
         if (subUserPermissions.manage) permissions.push('/manage');
 
-        const response = await fetch(`${apiUrl}/api/sub-users/${editingUserId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+        const response = await fetch(
+          `${apiUrl}/api/sub-users/${editingUserId}`,
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              fullName: subUserFullName,
+              email: subUserEmail,
+              role: subUserRole,
+              profilePic: '',
+              permissions,
+            }),
           },
-          body: JSON.stringify({
-            fullName: subUserFullName,
-            email: subUserEmail,
-            role: subUserRole,
-            profilePic: '',
-            permissions,
-          }),
-        });
+        );
 
         const data = await response.json();
         if (!response.ok) {
@@ -459,6 +611,103 @@ const Settings = ({ setIsAuthenticated }) => {
               </tbody>
             </table>
           </div>
+        </section>
+
+        <section className='work-panel work-history-panel'>
+          <div className='work-panel__header work-panel__header--row'>
+            <div>
+              <span className='work-kicker'>
+                <FiClock /> History
+              </span>
+              <h2>Voting History</h2>
+              <p>
+                Review created voting sessions and deleted logs with winner,
+                vote count, voting date, result date, and user activity.
+              </p>
+            </div>
+            <button
+              className='work-button work-button--light work-history-toggle'
+              type='button'
+              onClick={() => setHistoryExpanded((current) => !current)}
+              aria-expanded={historyExpanded}
+            >
+              {historyExpanded ? (
+                <>
+                  <FiChevronUp /> Compress
+                </>
+              ) : (
+                <>
+                  <FiChevronDown /> Expand
+                </>
+              )}
+            </button>
+          </div>
+
+          {!historyExpanded ? (
+            <div className='work-history-collapsed'>
+              {visibleHistory.length} history record
+              {visibleHistory.length === 1 ? '' : 's'} hidden
+            </div>
+          ) : historyError ? (
+            <div className='work-empty work-empty--error'>{historyError}</div>
+          ) : visibleHistory.length === 0 ? (
+            <div className='work-empty'>No voting history available yet.</div>
+          ) : (
+            <div className='work-history-list'>
+              {visibleHistory.map((event) => (
+                <article
+                  className='work-history-item'
+                  key={
+                    event.historyKey ||
+                    `${event.eventId}-${event.action}-${event.status}-${event.deletedAt || event.resultDate || event.createdAt || ''}`
+                  }
+                >
+                  <div className='work-history-item__top'>
+                    <div>
+                      <h3>{event.name || 'Untitled voting'}</h3>
+                      <span className='work-history-date'>
+                        Voting Date: {event.date || 'N/A'}
+                      </span>
+                    </div>
+                    <span
+                      className={`work-history-status work-history-status--${event.status}`}
+                    >
+                      {getHistoryStatusLabel(event)}
+                    </span>
+                  </div>
+                  <div className='work-history-details'>
+                    <span>
+                      {getHistoryActionLabel(event)} By:{' '}
+                      {formatActorName(getHistoryActor(event))}
+                    </span>
+                    <span>
+                      Voting Time: {event.startTime || 'N/A'} to{' '}
+                      {event.stopTime || 'N/A'}
+                    </span>
+                    {isVotingCompleted(event) && (
+                      <>
+                        <span>
+                          Winner: {event.winner || 'No votes yet'}
+                          {typeof event.winnerVotes === 'number' && (
+                            <>
+                              &nbsp;({event.winnerVotes} vote
+                              {event.winnerVotes === 1 ? '' : 's'})
+                            </>
+                          )}
+                        </span>
+                        <span>
+                          Result Date:{' '}
+                          {event.resultDate
+                            ? formatDateTime(event.resultDate)
+                            : 'Pending'}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
 
         {showCreateForm && (

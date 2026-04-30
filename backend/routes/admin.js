@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const EventHistory = require('../models/EventHistory');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -79,6 +80,29 @@ router.get(
     } catch (error) {
       console.error('Admin users fetch error:', error);
       res.status(500).json({ message: 'Failed to fetch users' });
+    }
+  },
+);
+
+router.get(
+  '/api/admin/users/:userId/history',
+  authenticateToken,
+  requireCompanyAdmin,
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({ message: 'Invalid user ID' });
+      }
+
+      const history = await EventHistory.find({ userId })
+        .sort({ createdAt: -1 })
+        .lean();
+
+      res.status(200).json({ history });
+    } catch (error) {
+      console.error('Admin fetch user history error:', error);
+      res.status(500).json({ message: 'Failed to fetch user history' });
     }
   },
 );

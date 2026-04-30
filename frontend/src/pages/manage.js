@@ -199,7 +199,9 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
     fetchActiveEvents();
     fetchUserSubscription();
-    const interval = setInterval(fetchActiveEvents, 60000);
+    const interval = setInterval(() => {
+      fetchActiveEvents();
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 

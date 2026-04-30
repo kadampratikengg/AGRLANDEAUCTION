@@ -269,7 +269,9 @@
 
 .company-admin-plan-row {
   display: grid;
-  grid-template-columns: minmax(220px, 1.25fr) 90px 80px minmax(280px, 1.25fr) 120px 100px;
+  grid-template-columns:
+    minmax(220px, 1.25fr) 90px 80px minmax(280px, 1.25fr)
+    120px 100px;
   gap: 10px;
   min-width: 980px;
   padding: 10px 14px;
@@ -407,4 +409,83 @@
   .company-admin-action:nth-child(2) > div {
     grid-template-columns: 1fr;
   }
+}
+
+/* Admin Dashboard - small helper styles for plans toggle and history */
+.company-admin-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #0f766e;
+  cursor: pointer;
+  padding: 6px;
+}
+.company-admin-action-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.company-admin-history-list {
+  border: 1px solid #e6eef6;
+  border-radius: 8px;
+  background: #ffffff;
+  margin-top: 10px;
+  overflow: hidden;
+}
+.company-admin-history-item {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.company-admin-history-item:last-child {
+  border-bottom: 0;
+}
+.company-admin-history-item .title {
+  font-weight: 700;
+  color: #172033;
+}
+.company-admin-history-item .meta {
+  color: #64748b;
+  font-size: 13px;
+  margin-top: 6px;
+}
+.company-admin-history-item .status {
+  margin-top: 8px;
+  color: #334155;
+}
+
+/* Table style for admin history */
+.company-admin-history-table-wrap {
+  margin-top: 10px;
+  overflow-x: auto;
+  border: 1px solid #e6eef6;
+  border-radius: 8px;
+  background: #ffffff;
+}
+.company-admin-history-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 900px;
+}
+.company-admin-history-table th,
+.company-admin-history-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  font-size: 13px;
+}
+.company-admin-history-table thead th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+.company-admin-history-table tbody tr:hover {
+  background: #fbfdff;
 }
