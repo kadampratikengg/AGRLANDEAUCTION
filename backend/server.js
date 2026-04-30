@@ -31,21 +31,32 @@ if (!fs.existsSync(uploadPath)) {
 }
 
 // Middleware
-const allowedOrigins = process.env.ALLOWED_ORIGINS
+const defaultAllowedOrigins = [
+  'http://localhost:3000',
+  'https://votinghub-sigma.vercel.app',
+];
+
+const configuredAllowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:3000'];
+  : [];
+
+const allowedOrigins = [...configuredAllowedOrigins, ...defaultAllowedOrigins]
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      console.warn(`CORS blocked origin: ${origin}`);
+      callback(null, false);
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
+  optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
