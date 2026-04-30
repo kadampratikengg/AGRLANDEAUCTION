@@ -424,7 +424,6 @@ const AdminDashboard = () => {
           <div className='company-admin-empty'>No users found.</div>
         ) : (
           filteredUsers.map((user) => {
-            const orderId = user.subscription?.orderId;
             const creditForm = creditForms[user.id] || {
               credits: '',
               validityDays: 365,
