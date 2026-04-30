@@ -18,6 +18,8 @@ import Voting from './pages/Voting';
 import Start from './pages/start';
 import Result from './pages/result';
 import PlansPage from './components/PlansPage';
+import AdminLogin from './pages/admin/AdminLogin';
+import AdminDashboard from './pages/admin/AdminDashboard';
 
 const getStoredRole = () => localStorage.getItem('role') || 'admin';
 const getStoredSubUserRole = () => localStorage.getItem('subUserRole') || '';
@@ -40,6 +42,16 @@ const getDefaultPrivateRoute = (role) =>
 const hasSession = () =>
   localStorage.getItem('isAuthenticated') === 'true' &&
   !!localStorage.getItem('token');
+
+const hasAdminSession = () => !!localStorage.getItem('companyAdminToken');
+
+const AdminProtectedRoute = ({ children }) => {
+  if (!hasAdminSession()) {
+    return <Navigate to='/admin' replace />;
+  }
+
+  return children;
+};
 
 const ProtectedRoute = ({ children, allowedRoles, requiredPermissions }) => {
   const location = useLocation();
@@ -95,6 +107,15 @@ const AppRoutes = ({ isAuthenticated, setIsAuthenticated, handleLogin }) => {
       />
       <Route path='/create-account' element={<CreateAccountPage />} />
       <Route path='/forgot-password' element={<ForgotPasswordPage />} />
+      <Route path='/admin' element={<AdminLogin />} />
+      <Route
+        path='/admin/dashboard'
+        element={
+          <AdminProtectedRoute>
+            <AdminDashboard />
+          </AdminProtectedRoute>
+        }
+      />
       <Route
         path='/planspage'
         element={<PlansPage setIsAuthenticated={setIsAuthenticated} />}

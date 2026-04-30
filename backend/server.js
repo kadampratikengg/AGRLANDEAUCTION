@@ -16,6 +16,7 @@ const s3UploadRoutes = require('./routes/s3-upload');
 const healthRoutes = require('./routes/health');
 const profileRoutes = require('./routes/profile');
 const subUserRoutes = require('./routes/sub-users');
+const adminRoutes = require('./routes/admin');
 const uploadcareRoutes = require('./routes/uploadcare'); // now handles S3 deletions
 const { errorHandler, multerErrorHandler } = require('./middleware/error');
 const { authenticateToken } = require('./middleware/auth');
@@ -53,7 +54,7 @@ const corsOptions = {
       callback(null, false);
     }
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
   optionsSuccessStatus: 204,
@@ -96,6 +97,7 @@ app.post('/api/change-password', authenticateToken, async (req, res) => {
 });
 
 app.use('/', authRoutes);
+app.use('/', adminRoutes);
 app.use('/', orderRoutes);
 app.use('/', invoiceRoutes);
 app.use('/', s3UploadRoutes);

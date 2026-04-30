@@ -187,7 +187,7 @@ router.get(
 
       let user = null;
 
-      if (requester.role === 'admin') {
+      if (requester.role === 'admin' || requester.role === 'company_admin') {
         user = await User.findOne({
           $or: [
             { 'subscription.orderId': orderId },
@@ -204,6 +204,7 @@ router.get(
 
       if (
         requester.role !== 'admin' &&
+        requester.role !== 'company_admin' &&
         String(requester.userId) !== String(user._id)
       ) {
         return res.status(403).json({ message: 'Access denied' });
@@ -304,8 +305,15 @@ router.get(
         .fillColor('#111827')
         .text('Subscription Details', rightX, 180, { width: columnWidth });
       const totalPaidRupees = Number(subscription.amount ?? 0) / 100;
-      const gstRupees = Number(subscription.gst ?? 0);
-      const discountedPriceRupees = Math.max(0, totalPaidRupees - gstRupees);
+      const storedGstRupees = Number(subscription.gst ?? 0);
+      const hasStoredGst =
+        Number.isFinite(storedGstRupees) && storedGstRupees > 0;
+      const discountedPriceRupees = hasStoredGst
+        ? Math.max(0, totalPaidRupees - storedGstRupees)
+        : totalPaidRupees / 1.18;
+      const gstRupees = hasStoredGst
+        ? storedGstRupees
+        : Math.max(0, totalPaidRupees - discountedPriceRupees);
       doc
         .font('Helvetica')
         .fontSize(10)
@@ -353,24 +361,17 @@ router.get(
         ['Amount', formatCurrencyRupees(subscription.mrp)],
         ['Discount', formatCurrencyRupees(subscription.discount)],
         ['Final Amount', formatCurrencyRupees(discountedPriceRupees), true],
+        ['GST 18%', formatCurrencyRupees(gstRupees)],
         ['Total Paid', formatCurrency(subscription.amount), true],
       ];
       const breakdownWidth = 260;
       const breakdownX = leftX + pageWidth - breakdownWidth;
 
       nextY += 18;
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(10)
-        .fillColor('#111827')
-        .text('Calculation', breakdownX, nextY, {
-          width: breakdownWidth,
-          align: 'right',
-        });
       nextY = drawAmountBreakdown(
         doc,
         breakdownX,
-        nextY + 18,
+        nextY,
         breakdownWidth,
         breakdownRows,
       );
