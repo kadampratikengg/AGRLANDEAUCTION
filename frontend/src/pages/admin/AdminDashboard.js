@@ -510,13 +510,20 @@ const AdminDashboard = () => {
                           className='company-admin-plan-row'
                           key={`${plan.orderId || plan.paymentId || 'plan'}-${index}`}
                         >
-                          <span>
+                          <span data-label='Plan'>
                             {plan.planDuration || 'Voting Subscription'}
                             {plan.current && <em>Current</em>}
                           </span>
-                          <span>{Number(plan.votingCredits || 0)}</span>
-                          <span>{Number(plan.usedVotingCredits || 0)}</span>
-                          <span className='company-admin-validity-cell'>
+                          <span data-label='Credits'>
+                            {Number(plan.votingCredits || 0)}
+                          </span>
+                          <span data-label='Used'>
+                            {Number(plan.usedVotingCredits || 0)}
+                          </span>
+                          <span
+                            className='company-admin-validity-cell'
+                            data-label='Validity'
+                          >
                             <small>
                               {formatDate(plan.startDate)} -{' '}
                               {formatDate(plan.endDate)}
@@ -549,8 +556,10 @@ const AdminDashboard = () => {
                               </span>
                             )}
                           </span>
-                          <span>{formatAmount(plan.amount)}</span>
-                          <span>
+                          <span data-label='Amount'>
+                            {formatAmount(plan.amount)}
+                          </span>
+                          <span data-label='Invoice'>
                             {plan.orderId ? (
                               <button
                                 className='company-admin-plan-invoice'
